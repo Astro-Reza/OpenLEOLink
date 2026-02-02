@@ -73,7 +73,7 @@ class ConstellationVisualizer {
         this.setupCanvas();
         this.preRenderAssets();
         this.loadEarthImage();
-        this.setupSocket();
+        this.initializeClientMode(); // No server needed - runs fully client-side
         this.setupControls();
         this.init3D(); // Initialize 3D scene (hidden initially)
 
@@ -490,21 +490,11 @@ class ConstellationVisualizer {
         this.popImage.src = '/static/textures/gpw_v4_density.png';
     }
 
-    setupSocket() {
-        this.socket = io();
-
-        this.socket.on('connect', () => {
-            document.getElementById('connection-status').textContent = 'Connected (Client Sim)';
-            document.querySelector('.status-dot').classList.add('connected');
-        });
-
-        // We only receive initial params, logic is now client-side
-        this.socket.on('initial_data', (data) => {
-            console.log('Received params:', data.params);
-            if (data.params) {
-                this.updateParams(data.params);
-            }
-        });
+    initializeClientMode() {
+        // No server connection needed - simulation runs entirely client-side
+        document.getElementById('connection-status').textContent = 'Client Simulation';
+        document.querySelector('.status-dot').classList.add('connected');
+        console.log('LEO Constellation running in client-side mode');
     }
 
     setupControls() {

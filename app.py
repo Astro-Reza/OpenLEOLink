@@ -1,12 +1,9 @@
 """
 LEO Constellation Visualization Backend
-Flask server with WebSocket for real-time constellation simulation
+Flask server for Vercel serverless deployment
 """
 
 from flask import Flask, render_template, send_from_directory, request, jsonify
-from flask_socketio import SocketIO, emit
-import threading
-import time
 import math
 import os
 import numpy as np
@@ -19,7 +16,6 @@ import base64
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'leo-orbit-viz-secret'
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Default constellation parameters
 constellation_params = {
@@ -326,65 +322,7 @@ def calculate_link_budget():
     
     return jsonify(results)
 
-# WebSocket Events
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
-    # Send initial data
-    satellites = generate_constellation(constellation_params, animation_state["time_offset"])
-    orbits = generate_orbit_paths(constellation_params)
-    emit('initial_data', {
-        "satellites": satellites,
-        "orbits": orbits,
-        "params": constellation_params
-    })
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    print('Client disconnected')
-
-@socketio.on('update_params')
-def handle_params_update(data):
-    """Handle parameter updates from client sliders"""
-    global constellation_params
-    
-    print(f"Received params update: {data}")
-    
-    if 'satellites' in data:
-        constellation_params['satellites'] = int(data['satellites'])
-    if 'orbital_planes' in data:
-        constellation_params['orbital_planes'] = int(data['orbital_planes'])
-    if 'beam_size' in data:
-        constellation_params['beam_size'] = float(data['beam_size'])
-    if 'inclination' in data:
-        constellation_params['inclination'] = float(data['inclination'])
-    
-    print(f"Updated constellation_params: {constellation_params}")
-    
-    # Regenerate orbit paths when planes change
-    orbits = generate_orbit_paths(constellation_params)
-    satellites = generate_constellation(constellation_params, animation_state["time_offset"])
-    
-    emit('initial_data', {
-        "satellites": satellites,
-        "orbits": orbits,
-        "params": constellation_params
-    }, broadcast=True)
-
-@socketio.on('toggle_play')
-def handle_toggle_play():
-    """Toggle animation play/pause"""
-    global animation_state
-    animation_state["is_playing"] = not animation_state["is_playing"]
-    emit('play_state', {"is_playing": animation_state["is_playing"]})
-
-@socketio.on('set_speed')
-def handle_set_speed(data):
-    """Set animation speed"""
-    global animation_state
-    animation_state["speed"] = float(data.get('speed', 1.0))
-
 if __name__ == '__main__':
     print("Starting LEO Constellation Visualization Server...")
     print("Open http://localhost:5000 in your browser")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
