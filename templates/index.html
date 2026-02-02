@@ -35,11 +35,22 @@
         </div>
     </div>
 
+    <!-- Global Header -->
+    <header class="global-header">
+        <div class="header-left">
+            <img src="/static/logo/palatine-black.svg" alt="Palatine Logo" class="brand-logo">
+            <span class="brand-divider"></span>
+            <span class="app-name">LEO ANALYZER</span>
+        </div>
+        <div class="header-right">
+            <img src="/static/icon/profile.svg" alt="Profile" class="profile-icon">
+        </div>
+    </header>
+
     <div class="app-container" id="app-container" style="opacity: 0; transition: opacity 1s;">
         <!-- Left Panel: Visualization -->
         <div class="viz-panel">
             <div class="viz-header">
-                <h1>LEO Constellation Tracker</h1>
                 <div class="view-toggle">
                     <button id="btn-2d" class="toggle-btn active">2D</button>
                     <button id="btn-3d" class="toggle-btn">3D</button>
@@ -205,6 +216,50 @@
             </div>
         </div>
     </div>
+
+    <!-- Footer Section -->
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-left">
+                <img src="/static/logo/palatine-white.svg" alt="Palatine Technologies" class="footer-logo">
+
+                <div class="copyright-wrapper">
+                    <div class="copyright-text">
+                        COPYRIGHT © 2026 PALATINE TECHNOLOGIES
+                    </div>
+                    <ul class="legal-links">
+                        <li><a href="#">License</a></li>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Use</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-right">
+                <div class="footer-column">
+                    <div class="column-header">COMPANY</div>
+                    <ul class="footer-links">
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Mission</a></li>
+                        <li><a href="#">GitHub</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <div class="column-header">ORIGINAL CREATORS</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Vortexa Selenic Team</a></li>
+                        <li><a href="#">NASA Space Apps Jakarta 2025</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <div class="column-header">RESEARCH</div>
+                    <ul class="footer-links">
+                        <li><a href="#">2026 Whitepaper</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <script src="/static/js/orbit.js"></script>

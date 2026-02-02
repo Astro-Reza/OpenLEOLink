@@ -27,10 +27,12 @@ class ConstellationVisualizer {
         this.renderer = null;
         this.controls = null;
         this.earthMesh = null;
+        this.densityMesh3D = null; // Population Density Sphere
+        this.beamMesh = null; // THREE.InstancedMesh for beams
         this.satPoints = null; // THREE.Points
         this.orbitLines = [];  // Array of THREE.Line
         this.earthRadius = 5;
-        this.orbitRadius = 6.5; // Approx altitude
+        this.orbitRadius = 5.5; // Approx altitude (Lowered for better visual)
 
         // Use a group for orbits to easily clear them
         this.orbitGroup = null;
@@ -182,14 +184,61 @@ class ConstellationVisualizer {
         // Earth
         const earthGeo = new THREE.SphereGeometry(this.earthRadius, 64, 64);
         const textureLoader = new THREE.TextureLoader();
-        const earthTexture = textureLoader.load('/static/textures/2k_earth_daymap.jpg');
-        const earthMat = new THREE.MeshPhongMaterial({
-            map: earthTexture,
-            specular: new THREE.Color('grey'),
-            shininess: 10
+        const dayTex = textureLoader.load('/static/textures/2k_earth_daymap.jpg');
+        const nightTex = textureLoader.load('/static/textures/2k_earth_nightmap.jpg');
+
+        const earthNavMat = new THREE.ShaderMaterial({
+            uniforms: {
+                dayTexture: { value: dayTex },
+                nightTexture: { value: nightTex },
+                sunDirection: { value: new THREE.Vector3(50, 20, 50).normalize() }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                varying vec3 vNormalWorld;
+                void main() {
+                    vUv = uv;
+                    vNormalWorld = normalize(mat3(modelMatrix) * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D dayTexture;
+                uniform sampler2D nightTexture;
+                uniform vec3 sunDirection;
+
+                varying vec2 vUv;
+                varying vec3 vNormalWorld;
+
+                void main() {
+                    float intensity = dot(vNormalWorld, sunDirection);
+                    float mixVal = smoothstep(-0.2, 0.2, intensity);
+                    vec3 dayColor = texture2D(dayTexture, vUv).rgb;
+                    vec3 nightColor = texture2D(nightTexture, vUv).rgb;
+                    gl_FragColor = vec4(mix(nightColor, dayColor, mixVal), 1.0);
+                }
+            `
         });
-        this.earthMesh = new THREE.Mesh(earthGeo, earthMat);
+
+        this.earthMesh = new THREE.Mesh(earthGeo, earthNavMat);
         this.scene.add(this.earthMesh);
+
+        // --- Population Density Sphere ---
+        const densGeo = new THREE.SphereGeometry(this.earthRadius + 0.02, 64, 64);
+        const densTex = textureLoader.load('/static/textures/gpw_v4_density.png');
+
+        const densMat = new THREE.MeshPhongMaterial({
+            map: densTex,
+            transparent: true,
+            opacity: this.popOpacity,
+            blending: THREE.NormalBlending,
+            side: THREE.FrontSide,
+            depthWrite: false
+        });
+
+        this.densityMesh3D = new THREE.Mesh(densGeo, densMat);
+        this.densityMesh3D.visible = this.showPopulation;
+        this.scene.add(this.densityMesh3D);
 
         // Satellites (Particle System)
         const satGeo = new THREE.BufferGeometry();
@@ -232,6 +281,49 @@ class ConstellationVisualizer {
         this.scene.add(this.orbitGroup);
 
         this.update3DOrbits();
+
+        // --- Beams (InstancedMesh) ---
+        // Max capacity 5000 just in case
+        const maxSats = 5000;
+        const alignGeometry = new THREE.ConeGeometry(1, 1, 32, 1, true); // Open ended?
+        // Cone is Y-up centered at 0. Tip at 0.5, Base at -0.5.
+        // We want Tip at 0 (Sat Position) and Base at +Z distance (Towards Earth if we lookAt Earth).
+        // Wait, LookAt makes +Z point to Target (Earth).
+        // So we want Cone to extend along +Z axis from 0 to Distance.
+        // Standard Cone: +Y axis.
+        // Rotate X 90: +Y -> +Z.
+        // Now Tip is at 0.5Z, Base at -0.5Z.
+        // Translate Z -0.5: Tip at 0, Base at -1.
+        // This extends along -Z.
+        // We want it to extend along +Z?
+        // If Sat is at P, Earth at O. O-P vector is direction.
+        // We put Mesh at P. lookAt(O).
+        // The object's +Z axis now points to O.
+        // So we want geometry to extend along +Z from 0.
+        // Rotate X 90 -> +Z axis. Tip 0.5, Base -0.5.
+        // Translate Z +0.5 -> Tip at 1, Base at 0.
+        // So Base is at P? No we want Tip at P.
+        // Okay, Tip at 0.
+        // Rotate X -90 -> +Y becomes -Z.
+        // Tip at -0.5Z. Base at +0.5Z.
+        // Translate Z +0.5 -> Tip at 0. Base at +1Z.
+        // Correct.
+        alignGeometry.rotateX(-Math.PI / 2);
+        alignGeometry.translate(0, 0, 0.5);
+
+        const beamMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffff, // Cyan
+            opacity: 0.15,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+
+        this.beamMesh = new THREE.InstancedMesh(alignGeometry, beamMat, maxSats);
+        this.beamMesh.count = this.params.satellites;
+        this.beamMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.scene.add(this.beamMesh);
     }
 
     handleResize3D() {
@@ -394,6 +486,7 @@ class ConstellationVisualizer {
 
         document.getElementById('show-beams').addEventListener('change', (e) => {
             this.showBeams = e.target.checked;
+            if (this.beamMesh) this.beamMesh.visible = this.showBeams;
         });
 
         document.getElementById('show-grid').addEventListener('change', (e) => {
@@ -421,6 +514,11 @@ class ConstellationVisualizer {
                     opacityControl.style.pointerEvents = this.showPopulation ? 'auto' : 'none';
                 }
                 this.staticLayerDirty = true;
+
+                // Update 3D Vis
+                if (this.densityMesh3D) {
+                    this.densityMesh3D.visible = this.showPopulation;
+                }
             });
         }
 
@@ -429,6 +527,11 @@ class ConstellationVisualizer {
                 this.popOpacity = parseInt(e.target.value) / 100;
                 if (opacityVal) opacityVal.textContent = e.target.value + '%';
                 this.staticLayerDirty = true;
+
+                // Update 3D Opacity
+                if (this.densityMesh3D) {
+                    this.densityMesh3D.material.opacity = this.popOpacity;
+                }
             });
         }
 
@@ -560,6 +663,51 @@ class ConstellationVisualizer {
     }
 
     // --- Logic for 3D Orbits ---
+    update3DBeams(totalSats) {
+        if (!this.beamMesh || !this.showBeams) return;
+
+        const dummy = new THREE.Object3D();
+        const earthCenter = new THREE.Vector3(0, 0, 0);
+
+        // Update count if changed
+        if (this.beamMesh.count !== totalSats) {
+            this.beamMesh.count = totalSats;
+        }
+
+        // Beam spread: We can approximate radius from angle
+        // dist * tan(angle/2).
+        // Angle comes from params.beam_size (which is arbitrary beam size factor 0-1?)
+        // In 2D: angularRadius = params.beam_size * 0.14
+        // Let's use similar scale. 
+        // angle ~ beam_size * 0.3 radians?
+        const angle = this.params.beam_size * 0.5; // Tuning
+
+        for (let i = 0; i < totalSats; i++) {
+            const pos = this.getSatellitePosition(i, totalSats, this.timeOffset);
+            const vec3 = this.latLonToVector3(pos.lat, pos.lon, this.orbitRadius);
+
+            dummy.position.copy(vec3);
+            dummy.lookAt(earthCenter);
+
+            // Distance to surface
+            // Sat is at orbitRadius. Surface at earthRadius.
+            // Distance along lookAt vector is orbitRadius - earthRadius.
+            const dist = this.orbitRadius - this.earthRadius;
+
+            // Cone width radius
+            const radius = dist * Math.tan(angle);
+
+            // Initial Geo: Length 1, Radius 1.
+            // Scale(x, y, z): x,y are radius, z is length.
+            dummy.scale.set(radius, radius, dist);
+
+            dummy.updateMatrix();
+            this.beamMesh.setMatrixAt(i, dummy.matrix);
+        }
+
+        this.beamMesh.instanceMatrix.needsUpdate = true;
+    }
+
     update3DOrbits() {
         if (!this.orbitGroup) return;
 
@@ -814,6 +962,12 @@ class ConstellationVisualizer {
             // But we can add cloud rotation purely for effect if we had a cloud layer.
 
             this.controls.update();
+
+            // Beams update
+            if (this.showBeams && this.beamMesh) {
+                this.update3DBeams(this.params.satellites);
+            }
+
             this.renderer.render(this.scene, this.camera);
         }
 

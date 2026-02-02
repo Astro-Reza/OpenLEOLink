@@ -31,19 +31,38 @@
     font-family: 'Geologica', sans-serif;
 }
 
+:root {
+    --footer-bg: #4A5041;
+    --footer-text: #FFFFFF;
+    --footer-header: #A0A598;
+}
+
 body {
     background: #1E1E1E;
     color: #f9fafb;
     min-height: 50vh;
-    overflow: hidden;
+    overflow-y: auto !important;
+    /* Force scroll */
     cursor: url('/static/icon/cursor.svg'), auto;
+}
+
+html {
+    overflow-y: auto;
+    height: auto;
 }
 
 /* Main Layout */
 .app-container {
     display: flex;
     width: 100vw;
-    height: 100vh;
+    height: calc(100vh - 60px);
+    /* Subtract header height */
+    /* Subtract header height */
+    margin-top: 60px;
+    /* Push down below fixed header */
+    position: relative;
+    z-index: 1;
+    /* Ensure app acts as base layer */
 }
 
 /* Visualization Panel */
@@ -51,21 +70,26 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    padding: 0;
+    /* Removed padding so canvas fills area */
     background: #1E1E1E;
+    position: relative;
+    /* Context for absolute canvas */
 }
 
 .viz-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-}
-
-.viz-header h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #fff;
+    margin-bottom: 0;
+    padding: 20px;
+    /* Restore padding here */
+    position: relative;
+    z-index: 10;
+    /* Let clicks pass through empty space */
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent);
+    justify-content: flex-end;
+    /* Push status to right, toggle is absolute */
 }
 
 .status-indicator {
@@ -73,7 +97,8 @@ body {
     align-items: center;
     gap: 8px;
     font-size: 0.875rem;
-    color: #9ca3af;
+    color: #ffffff;
+    /* Changed to White */
 }
 
 .status-dot {
@@ -102,12 +127,13 @@ body {
 
 /* Canvas Container */
 .canvas-container {
-    flex: 1;
-    position: relative;
-    border-radius: 8px;
-    overflow: hidden;
+    position: absolute;
+    /* Behind everything */
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
     background: #111;
-    border: 1px solid #333;
 }
 
 #orbit-canvas {
@@ -153,9 +179,14 @@ body {
 .viz-legend {
     display: flex;
     gap: 24px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #333;
+    margin-top: auto;
+    /* Push to bottom */
+    padding: 20px;
+    position: relative;
+    z-index: 10;
+    pointer-events: none;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+    /* Optional fade for readability */
 }
 
 .legend-item {
@@ -163,7 +194,9 @@ body {
     align-items: center;
     gap: 8px;
     font-size: 0.75rem;
-    color: #6b7280;
+    color: #e5e7eb;
+    /* Lightened for visibility on dark BG */
+    pointer-events: auto;
 }
 
 .legend-dot {
@@ -285,6 +318,8 @@ body {
 /* --- Custom Range Slider --- */
 input[type=range] {
     -webkit-appearance: none;
+    appearance: none;
+    /* Fix compatibility lint */
     width: 100%;
     background: transparent;
 }
@@ -491,8 +526,12 @@ input[type=range]::-moz-range-thumb {
     background: #2a2a2a;
     border-radius: 20px;
     padding: 3px;
-    margin-right: 20px;
     border: 1px solid #444;
+
+    /* Absolute Centering */
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .toggle-btn {
@@ -530,6 +569,8 @@ input[type=range]::-moz-range-thumb {
     /* Ensure it's hidden when done */
     opacity: 1;
     transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    transform: translate(-50%, -50%) scale(0.75);
+    /* Scaled down for smaller appearance */
 }
 
 .loader-container.hidden {
@@ -538,7 +579,68 @@ input[type=range]::-moz-range-thumb {
     pointer-events: none;
 }
 
-/* --- HEADER SECTION --- */
+/* --- GLOBAL HEADER --- */
+.global-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background-color: #f5f5f4;
+    /* Off-white like image */
+    border-bottom: 1px solid #e5e5e5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 1000;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.brand-logo {
+    height: 24px;
+    width: auto;
+}
+
+.brand-divider {
+    width: 1px;
+    height: 24px;
+    background-color: #d1d5db;
+}
+
+.app-name {
+    font-family: 'Geologica', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    color: #737373;
+    /* Grey text */
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.profile-icon {
+    height: 24px;
+    width: 24px;
+    opacity: 0.6;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.profile-icon:hover {
+    opacity: 1.0;
+}
+
+/* --- LOADER --- */
 .loader-header {
     background-color: #FFFFFF;
     height: 60px;
@@ -728,5 +830,145 @@ input[type=range]::-moz-range-thumb {
 
     100% {
         width: 70%;
+    }
+}
+
+/* --- FOOTER STYLES --- */
+.site-footer {
+    background-color: var(--footer-bg);
+    color: var(--footer-text);
+    padding: 50px 60px;
+    font-size: 12px;
+    display: flex;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+    /* Above app container if needed */
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+    align-items: flex-start;
+}
+
+.footer-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    flex: 1;
+    max-width: 350px;
+    padding-right: 30px;
+}
+
+.footer-logo {
+    height: 20px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.copyright-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.copyright-text {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    color: var(--footer-text);
+}
+
+.legal-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 10px;
+    font-weight: 300;
+    line-height: 1.4;
+    opacity: 0.8;
+}
+
+.legal-links li {
+    margin-bottom: 1px;
+}
+
+.legal-links a {
+    color: var(--footer-text);
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.legal-links a:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+.footer-right {
+    display: flex;
+    gap: 80px;
+    flex: 2;
+    justify-content: flex-start;
+}
+
+.footer-column {
+    display: flex;
+    flex-direction: column;
+}
+
+.column-header {
+    color: var(--footer-header);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+}
+
+.footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.footer-links li {
+    margin-bottom: 10px;
+}
+
+.footer-links a {
+    color: var(--footer-text);
+    text-decoration: none;
+    font-weight: 400;
+    font-size: 13px;
+    transition: opacity 0.2s;
+}
+
+.footer-links a:hover {
+    opacity: 0.8;
+}
+
+@media (max-width: 900px) {
+    .site-footer {
+        padding: 40px;
+    }
+
+    .footer-content {
+        flex-direction: column;
+        gap: 40px;
+    }
+
+    .footer-logo {
+        margin-bottom: 20px;
+    }
+
+    .footer-right {
+        flex-wrap: wrap;
+        gap: 40px;
     }
 }
