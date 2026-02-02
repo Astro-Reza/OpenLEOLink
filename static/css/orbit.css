@@ -1,0 +1,457 @@
+/* ===================================
+   LEO Constellation Visualization Styles
+   =================================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background: #1E1E1E;
+    color: #f9fafb;
+    min-height: 50vh;
+    overflow: hidden;
+    cursor: url('/static/icon/cursor.svg'), auto;
+}
+
+/* Main Layout */
+.app-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Visualization Panel */
+.viz-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background: #1E1E1E;
+}
+
+.viz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.viz-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: #9ca3af;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f97316;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.connected {
+    background: #10b981;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Canvas Container */
+.canvas-container {
+    flex: 1;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #111;
+    border: 1px solid #333;
+}
+
+#orbit-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Satellite Info Overlay */
+.satellite-info {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.sat-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #06b6d4;
+    margin-bottom: 6px;
+}
+
+.sat-coords {
+    display: flex;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+/* Legend */
+.viz-legend {
+    display: flex;
+    gap: 24px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #333;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.legend-dot.satellite {
+    background: #f97316;
+    box-shadow: 0 0 6px #f97316;
+}
+
+.legend-dot.beam {
+    background: rgba(59, 130, 246, 0.4);
+    border: 1px solid #3b82f6;
+}
+
+.legend-line {
+    width: 24px;
+    height: 2px;
+    background: #06b6d4;
+    border-radius: 1px;
+}
+
+/* Control Panel */
+.control-panel {
+    width: 320px;
+    background: #D9D9D9;
+    border-left: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    color: #171717;
+}
+
+.panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #bbb;
+}
+
+.panel-header h2 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #171717;
+}
+
+/* --- Dropdown Component --- */
+.dropdown-container {
+    position: relative;
+    border-bottom: 1px solid #bbb;
+}
+
+.dropdown-header {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    overflow: hidden;
+    transition: background-color 0.3s ease;
+}
+
+.dropdown-header:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.header-title {
+    font-size: 16px;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.arrow-icon {
+    width: 20px;
+    height: 20px;
+    stroke: #171717;
+    stroke-width: 2;
+    fill: none;
+    transition: transform 0.4s ease;
+}
+
+.dropdown-container.is-open .arrow-icon {
+    transform: rotate(135deg);
+}
+
+.dropdown-content {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding: 0 20px;
+    transition: all 0.4s ease;
+}
+
+.dropdown-container.is-open .dropdown-content {
+    max-height: 400px;
+    opacity: 1;
+    padding-bottom: 20px;
+    padding-top: 8px;
+}
+
+/* --- Slider Rows --- */
+.slider-row {
+    margin-bottom: 16px;
+}
+
+.slider-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+/* --- Custom Range Slider --- */
+input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    background: transparent;
+}
+
+input[type=range]:focus {
+    outline: none;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    background: #FFFFFF;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    background: #FFFFFF;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+input[type=range]::-webkit-slider-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #171717;
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -7px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+input[type=range]::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border: none;
+    border-radius: 50%;
+    background: #171717;
+    cursor: pointer;
+}
+
+/* --- Checkbox & Radio Rows --- */
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+}
+
+.checkbox-row input[type="checkbox"],
+.checkbox-row input[type="radio"] {
+    display: none;
+    /* Hide default input */
+}
+
+.checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #333;
+    border-radius: 4px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.checkmark.radio {
+    border-radius: 50%;
+}
+
+.checkbox-row input:checked+.checkmark {
+    background: #171717;
+    border-color: #171717;
+}
+
+.checkmark::after {
+    content: '';
+    width: 5px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    display: none;
+    margin-top: -2px;
+}
+
+.checkmark.radio::after {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: white;
+    border: none;
+    transform: none;
+    margin-top: 0;
+}
+
+.checkbox-row input:checked+.checkmark::after {
+    display: block;
+}
+
+/* --- Playback Section --- */
+.playback-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #bbb;
+}
+
+.play-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #171717;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.play-btn:hover {
+    transform: scale(1.1);
+}
+
+.play-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+}
+
+.speed-control input[type="range"] {
+    flex: 1;
+    max-width: 100px;
+}
+
+#speed-value {
+    min-width: 35px;
+    text-align: right;
+}
+
+/* --- Time Section --- */
+.time-section {
+    padding: 16px 20px;
+    text-align: center;
+    margin-top: auto;
+}
+
+.time-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #666;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.time-display {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #171717;
+    letter-spacing: 0.05em;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .app-container {
+        flex-direction: column;
+    }
+
+    .control-panel {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid #bbb;
+    }
+}

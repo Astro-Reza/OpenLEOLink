@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chasing Space Interactive</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@800&display=swap" rel="stylesheet">
+
+    <style>
+        /* CSS Reset */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #171717;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Geologica', sans-serif;
+            overflow: hidden;
+        }
+
+        /* CONTAINER 
+           Width fits the content (defined by the longest word "SOVEREIGNTY").
+        */
+        .interactive-container {
+            position: relative;
+            width: fit-content;
+            padding: 50px;
+            cursor: default;
+            /* Fallback cursor */
+            user-select: none;
+        }
+
+        /* TEXT LAYOUT (Shared by both layers) */
+        .text-layer {
+            display: flex;
+            flex-direction: column;
+            font-size: 8vw;
+            /* Responsive size */
+            line-height: 0.9;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        @media (min-width: 1200px) {
+            .text-layer {
+                font-size: 100px;
+            }
+        }
+
+        /* Rows for alignment */
+        .row {
+            display: flex;
+            width: 100%;
+            position: relative;
+        }
+
+        .align-left {
+            justify-content: flex-start;
+        }
+
+        .align-center {
+            justify-content: center;
+        }
+
+        .align-right {
+            justify-content: flex-end;
+        }
+
+        /* --- LAYER 1: BASE (The Blurred Background) --- */
+        /* This layer is ALWAYS blurred now. */
+        .layer-base {
+            color: #505544;
+            filter: blur(6px);
+            /* Strong blur */
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        /* --- LAYER 2: OVERLAY (The Sharp Spotlight) --- */
+        .layer-overlay {
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            /* Match padding */
+            width: calc(100% - 100px);
+            height: calc(100% - 100px);
+
+            color: #FFFFFF;
+            filter: none;
+            /* Sharp text */
+
+            /* The Spotlight Mask */
+            clip-path: circle(120px at var(--cursor-x, -100%) var(--cursor-y, -100%));
+
+            /* Crucial: Allow clicks to pass through text, 
+               but we will re-enable them for the button below */
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* --- THE BUTTON --- */
+        .launch-btn {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            padding: 6px 14px;
+
+            /* Default Style */
+            color: #FFFFFF;
+            border: 1px solid #FFFFFF;
+            background: transparent;
+
+            overflow: hidden;
+            transition: color 0.3s;
+        }
+
+        /* Button in Base Layer (Blurred) */
+        .layer-base .launch-btn {
+            opacity: 0.5;
+            /* Fade it out slightly */
+            pointer-events: none;
+            /* Not clickable in the blur */
+        }
+
+        /* Button in Overlay Layer (Sharp) */
+        .layer-overlay .launch-btn {
+            pointer-events: auto;
+            /* Enable clicks/hover when revealed! */
+            cursor: pointer;
+        }
+
+        /* Sliding Fill Animation (Only visible on the Sharp button) */
+        .launch-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #FFFFFF;
+
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: -1;
+        }
+
+        /* Hover Effects (Only triggers on the sharp button) */
+        .launch-btn:hover {
+            color: #171717;
+        }
+
+        .launch-btn:hover::before {
+            transform: scaleX(1);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="interactive-container" id="titleContainer">
+
+        <div class="text-layer layer-base">
+            <div class="row align-left">Chasing</div>
+            <div class="row align-center">
+                <span>Space</span>
+                <a class="launch-btn">LAUNCH</a>
+            </div>
+            <div class="row align-right">Sovereignty</div>
+        </div>
+
+        <div class="text-layer layer-overlay">
+            <div class="row align-left">Chasing</div>
+            <div class="row align-center">
+                <span>Space</span>
+                <a href="#" class="launch-btn">LAUNCH</a>
+            </div>
+            <div class="row align-right">Sovereignty</div>
+        </div>
+
+    </div>
+
+    <script>
+        const container = document.getElementById('titleContainer');
+
+        container.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Update CSS variables for the clip-path coordinates
+            container.style.setProperty('--cursor-x', `${x}px`);
+            container.style.setProperty('--cursor-y', `${y}px`);
+        });
+
+        container.addEventListener('mouseleave', () => {
+            // Move spotlight off screen when mouse leaves
+            container.style.setProperty('--cursor-x', '-100%');
+            container.style.setProperty('--cursor-y', '-100%');
+        });
+    </script>
+
+</body>
+
+</html>
