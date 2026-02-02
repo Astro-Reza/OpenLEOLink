@@ -478,7 +478,7 @@ class ConstellationVisualizer {
         this.earthImage.crossOrigin = 'anonymous';
         this.earthImage.onload = () => {
             this.imageLoaded = true;
-            if (this.showPopulation) this.staticLayerDirty = true;
+            this.staticLayerDirty = true; // Always redraw when Earth image loads
         };
         this.earthImage.src = '/static/textures/8k_earth_daymap.jpg';
 
