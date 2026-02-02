@@ -205,12 +205,49 @@ class ConstellationVisualizer {
         pointLight.position.copy(sunDir).multiplyScalar(800);
         this.scene.add(pointLight);
 
-        // Sun Mesh
+        // Sun Mesh - Bright white sun with glow
         const sunGeo = new THREE.SphereGeometry(20, 32, 32);
-        const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const sunMesh = new THREE.Mesh(sunGeo, sunMat);
         sunMesh.position.copy(pointLight.position);
         this.scene.add(sunMesh);
+
+        // Sun Glow Effect - Multiple layers for realistic space sun appearance
+        // Inner glow (intense white-yellow)
+        const glowGeo1 = new THREE.SphereGeometry(25, 32, 32);
+        const glowMat1 = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+        const glowMesh1 = new THREE.Mesh(glowGeo1, glowMat1);
+        glowMesh1.position.copy(pointLight.position);
+        this.scene.add(glowMesh1);
+
+        // Middle glow (softer white)
+        const glowGeo2 = new THREE.SphereGeometry(35, 32, 32);
+        const glowMat2 = new THREE.MeshBasicMaterial({
+            color: 0xffffee,
+            transparent: true,
+            opacity: 0.3,
+            blending: THREE.AdditiveBlending
+        });
+        const glowMesh2 = new THREE.Mesh(glowGeo2, glowMat2);
+        glowMesh2.position.copy(pointLight.position);
+        this.scene.add(glowMesh2);
+
+        // Outer glow (subtle corona)
+        const glowGeo3 = new THREE.SphereGeometry(50, 32, 32);
+        const glowMat3 = new THREE.MeshBasicMaterial({
+            color: 0xffeedd,
+            transparent: true,
+            opacity: 0.15,
+            blending: THREE.AdditiveBlending
+        });
+        const glowMesh3 = new THREE.Mesh(glowGeo3, glowMat3);
+        glowMesh3.position.copy(pointLight.position);
+        this.scene.add(glowMesh3);
 
         // --- Starfield Background (Milky Way) ---
         const starGeo = new THREE.SphereGeometry(1500, 64, 64);

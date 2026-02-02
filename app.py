@@ -128,6 +128,14 @@ def generate_orbit_paths(params):
 def index():
     return render_template('index.html')
 
+@app.route('/landing')
+def landing():
+    return render_template('landing.html')
+
+@app.route('/terminal')
+def terminal():
+    return render_template('terminal.html')
+
 @app.route('/static/<path:path>')
 def serve_static(path):
     return send_from_directory('static', path)

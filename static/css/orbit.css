@@ -651,6 +651,29 @@ input[type=range]::-moz-range-thumb {
     text-transform: uppercase;
 }
 
+.nav-link {
+    font-family: 'Geologica', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    color: #737373;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #171717;
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.nav-link.active {
+    color: #171717;
+    font-weight: 600;
+}
+
 .header-right {
     display: flex;
     align-items: center;
