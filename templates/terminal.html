@@ -204,12 +204,16 @@
             overflow: hidden;
         }
 
-        .chart-card img {
+        .chart-wrapper {
             width: 100%;
-            max-height: 280px;
-            object-fit: contain;
-            display: block;
+            height: 250px;
             background: #2a2a2a;
+            padding: 10px;
+        }
+
+        .chart-wrapper canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
 
         .chart-title {
@@ -609,19 +613,19 @@
         <!-- Charts Grid -->
         <div class="charts-grid">
             <div class="chart-card">
-                <img id="chart-elevation-pdf" src="" alt="Elevation PDF">
+                <div class="chart-wrapper"><canvas id="chart-elevation-pdf"></canvas></div>
                 <div class="chart-title">Elevation Angle Distribution</div>
             </div>
             <div class="chart-card">
-                <img id="chart-power-boxplot" src="" alt="Power Distribution">
+                <div class="chart-wrapper"><canvas id="chart-power-boxplot"></canvas></div>
                 <div class="chart-title">Received Power Statistics</div>
             </div>
             <div class="chart-card">
-                <img id="chart-range-elevation" src="" alt="Range vs Elevation">
+                <div class="chart-wrapper"><canvas id="chart-range-elevation"></canvas></div>
                 <div class="chart-title">Slant Range vs Elevation</div>
             </div>
             <div class="chart-card">
-                <img id="chart-path-loss" src="" alt="Path Loss">
+                <div class="chart-wrapper"><canvas id="chart-path-loss"></canvas></div>
                 <div class="chart-title">Path Loss Distribution</div>
             </div>
         </div>
@@ -694,8 +698,16 @@
         </div>
     </footer>
 
+    <!-- Chart.js and Link Budget Calculator -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/static/js/link-budget.js"></script>
+
     <!-- Control Scripts -->
     <script>
+        // Chart instances
+        let charts = {};
+        const calculator = new LinkBudgetCalculator();
+
         // Dropdown toggle function
         function toggleDropdown(id) {
             document.getElementById(id).classList.toggle('is-open');
@@ -738,8 +750,105 @@
             document.getElementById('val-required-power').textContent = e.target.value;
         });
 
+        // Create histogram chart
+        function createHistogramChart(canvasId, data, color, title) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            // Destroy existing chart
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            const hist = calculator.createHistogram(data, 30);
+            const labels = hist.edges.slice(0, -1).map((e, i) => ((e + hist.edges[i + 1]) / 2).toFixed(1));
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: hist.counts,
+                        backgroundColor: color + '99',
+                        borderColor: color,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#ccc', maxTicksLimit: 8 }, grid: { color: '#444' } },
+                        y: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                    }
+                }
+            });
+        }
+
+        // Create scatter chart
+        function createScatterChart(canvasId, xData, yData, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            // Sample data for performance
+            const step = Math.max(1, Math.floor(xData.length / 500));
+            const points = [];
+            for (let i = 0; i < xData.length; i += step) {
+                points.push({ x: xData[i], y: yData[i] });
+            }
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        data: points,
+                        backgroundColor: color + '66',
+                        borderColor: color,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#ccc' }, grid: { color: '#444' } },
+                        y: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                    }
+                }
+            });
+        }
+
+        // Create power comparison chart
+        function createPowerChart(canvasId, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Worst', 'Expected', 'Best', 'Required'],
+                    datasets: [{
+                        data: [data.worst_case_pr, data.expected_pr, data.best_case_pr, data.chartData.requiredPower],
+                        backgroundColor: ['#f44336', '#4caf50', '#2196f3', '#ff9800'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#ccc' }, grid: { color: '#444' }, title: { display: true, text: 'Power (dBW)', color: '#ccc' } },
+                        y: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                    }
+                }
+            });
+        }
+
         // Calculate button handler
-        document.getElementById('calculate-btn').addEventListener('click', async () => {
+        document.getElementById('calculate-btn').addEventListener('click', () => {
             const calcBtn = document.getElementById('calculate-btn');
             const loadingOverlay = document.getElementById('loading-overlay');
             const resultsPanel = document.getElementById('results-panel');
@@ -759,116 +868,86 @@
             calcBtn.textContent = 'Calculating...';
             loadingOverlay.classList.add('visible');
 
-            // Start loading animation
-            let animationId;
-            const startTime = Date.now();
-            const animDuration = 2500;
+            // Use setTimeout to allow UI update before heavy calculation
+            setTimeout(() => {
+                try {
+                    // Gather parameters
+                    const params = {
+                        altitude: parseFloat(document.getElementById('range-altitude').value),
+                        inclination: parseFloat(document.getElementById('range-sat-inclination').value),
+                        latitude: parseFloat(document.getElementById('range-latitude').value),
+                        minElevation: parseFloat(document.getElementById('range-elevation').value),
+                        frequency: parseFloat(document.getElementById('range-frequency').value),
+                        eirp: parseFloat(document.getElementById('range-eirp').value),
+                        gr: parseFloat(document.getElementById('range-gr').value),
+                        requiredPower: parseFloat(document.getElementById('range-required-power').value)
+                    };
 
-            function animateLoader() {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / animDuration, 0.95);
-                const percent = Math.floor(progress * 100);
-                percentText.textContent = percent + '%';
+                    // Run calculation
+                    const data = calculator.calculate(params);
 
-                const blocks = progressGrid.children;
-                const blocksToFill = Math.floor(progress * 20);
-                for (let i = 0; i < 20; i++) {
-                    if (i < blocksToFill) {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                        return;
+                    }
+
+                    // Update link margin display
+                    document.getElementById('link-margin').textContent = data.link_margin_expected.toFixed(1) + ' dB';
+
+                    // Update metrics
+                    const setMetric = (id, value, decimals = 1) => {
+                        const el = document.getElementById(id);
+                        el.textContent = typeof value === 'number' ? value.toFixed(decimals) : value;
+                        el.className = 'metric-value';
+                        if (id.includes('margin')) {
+                            el.classList.add(value >= 0 ? 'positive' : 'negative');
+                        }
+                    };
+
+                    setMetric('metric-expected-pr', data.expected_pr);
+                    setMetric('metric-worst-pr', data.worst_case_pr);
+                    setMetric('metric-best-pr', data.best_case_pr);
+                    setMetric('metric-margin-expected', data.link_margin_expected);
+                    setMetric('metric-margin-worst', data.link_margin_worst);
+                    setMetric('metric-visibility', data.visibility_ratio);
+                    setMetric('metric-std', data.std_dev_pr);
+                    document.getElementById('metric-samples').textContent = data.samples_count.toLocaleString();
+
+                    // Create charts
+                    createHistogramChart('chart-elevation-pdf', data.chartData.thetaSamples, '#00bcd4');
+                    createPowerChart('chart-power-boxplot', data);
+                    createScatterChart('chart-range-elevation', data.chartData.thetaSamples, data.chartData.slantRangeSamples, '#ff9800');
+                    createHistogramChart('chart-path-loss', data.chartData.fsplSamples, '#e91e63');
+
+                    // Update timestamp
+                    document.getElementById('results-timestamp').textContent =
+                        'Calculated at ' + new Date().toLocaleTimeString();
+
+                    // Show results panel
+                    resultsPanel.classList.add('visible');
+
+                    // Scroll to results
+                    setTimeout(() => resultsPanel.scrollIntoView({ behavior: 'smooth' }), 100);
+
+                } catch (error) {
+                    console.error('Calculation error:', error);
+                    alert('Calculation failed: ' + error.message);
+                } finally {
+                    // Complete loading animation
+                    percentText.textContent = '100%';
+                    const blocks = progressGrid.children;
+                    for (let i = 0; i < 20; i++) {
                         blocks[i].classList.add('filled');
                     }
+
+                    // Brief delay to show 100%, then hide
+                    setTimeout(() => {
+                        calcBtn.disabled = false;
+                        calcBtn.textContent = 'Calculate';
+                        loadingOverlay.classList.remove('visible');
+                    }, 300);
                 }
-
-                if (progress < 0.95) {
-                    animationId = requestAnimationFrame(animateLoader);
-                }
-            }
-            animateLoader();
-
-            // Gather parameters
-            const params = {
-                altitude: document.getElementById('range-altitude').value,
-                inclination: document.getElementById('range-sat-inclination').value,
-                latitude: document.getElementById('range-latitude').value,
-                min_elevation: document.getElementById('range-elevation').value,
-                frequency: document.getElementById('range-frequency').value,
-                exceedance: document.getElementById('range-exceedance').value,
-                eirp: document.getElementById('range-eirp').value,
-                gr: document.getElementById('range-gr').value,
-                required_power: document.getElementById('range-required-power').value
-            };
-
-            try {
-                const response = await fetch('/api/calculate_link_budget', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(params)
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    alert('Error: ' + data.error);
-                    return;
-                }
-
-                // Update link margin display
-                const marginClass = data.link_margin_expected >= 0 ? 'positive' : 'negative';
-                document.getElementById('link-margin').textContent = data.link_margin_expected.toFixed(1) + ' dB';
-
-                // Update metrics
-                const setMetric = (id, value, decimals = 1) => {
-                    const el = document.getElementById(id);
-                    el.textContent = typeof value === 'number' ? value.toFixed(decimals) : value;
-                    el.className = 'metric-value';
-                    if (id.includes('margin')) {
-                        el.classList.add(value >= 0 ? 'positive' : 'negative');
-                    }
-                };
-
-                setMetric('metric-expected-pr', data.expected_pr);
-                setMetric('metric-worst-pr', data.worst_case_pr);
-                setMetric('metric-best-pr', data.best_case_pr);
-                setMetric('metric-margin-expected', data.link_margin_expected);
-                setMetric('metric-margin-worst', data.link_margin_worst);
-                setMetric('metric-visibility', data.visibility_ratio);
-                setMetric('metric-std', data.std_dev_pr);
-                document.getElementById('metric-samples').textContent = data.samples_count.toLocaleString();
-
-                // Update charts
-                document.getElementById('chart-elevation-pdf').src = 'data:image/png;base64,' + data.charts.elevation_pdf;
-                document.getElementById('chart-power-boxplot').src = 'data:image/png;base64,' + data.charts.power_boxplot;
-                document.getElementById('chart-range-elevation').src = 'data:image/png;base64,' + data.charts.range_elevation;
-                document.getElementById('chart-path-loss').src = 'data:image/png;base64,' + data.charts.path_loss;
-
-                // Update timestamp
-                document.getElementById('results-timestamp').textContent =
-                    'Calculated at ' + new Date().toLocaleTimeString();
-
-                // Show results panel
-                resultsPanel.classList.add('visible');
-
-                // Scroll to results
-                resultsPanel.scrollIntoView({ behavior: 'smooth' });
-
-            } catch (error) {
-                console.error('Calculation error:', error);
-                alert('Failed to calculate. Please check if the server is running.');
-            } finally {
-                // Complete loading animation
-                cancelAnimationFrame(animationId);
-                percentText.textContent = '100%';
-                const blocks = progressGrid.children;
-                for (let i = 0; i < 20; i++) {
-                    blocks[i].classList.add('filled');
-                }
-
-                // Brief delay to show 100%, then hide
-                setTimeout(() => {
-                    calcBtn.disabled = false;
-                    calcBtn.textContent = 'Calculate';
-                    loadingOverlay.classList.remove('visible');
-                }, 300);
-            }
+            }, 100);
         });
     </script>
 
