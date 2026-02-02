@@ -49,6 +49,7 @@ class ConstellationVisualizer {
         this.earthImage = null;
         this.imageLoaded = false;
         this.timeOffset = 0;
+        this.simTime = Date.now(); // Initialize Simulated Time
         this.lastFrameTime = 0;
         this.isPlaying = true;
         this.speed = 1.0;
@@ -69,7 +70,6 @@ class ConstellationVisualizer {
     }
 
     init() {
-        this.initLoadingScreen();
         this.setupCanvas();
         this.preRenderAssets();
         this.loadEarthImage();
@@ -150,13 +150,26 @@ class ConstellationVisualizer {
     // --- 3D Initialization ---
     init3D() {
         // Scene & Camera
+        const manager = new THREE.LoadingManager();
+        manager.onProgress = function (url, itemsLoaded, itemsTotal) {
+            const percent = Math.floor((itemsLoaded / itemsTotal) * 100);
+            const text = document.getElementById('percentText');
+            if (text) text.innerText = percent + '%';
+        };
+        manager.onLoad = function () {
+            const loader = document.getElementById('loader-screen');
+            if (loader) loader.classList.add('hidden');
+            const app = document.getElementById('app-container');
+            if (app) app.style.opacity = '1';
+        };
+
+        // Scene & Camera
         this.scene = new THREE.Scene();
-        // this.scene.background = new THREE.Color(0x000000); // Transparent/Black
 
         const fov = 45;
         const aspect = this.container3D.clientWidth / this.container3D.clientHeight;
         const near = 0.1;
-        const far = 1000;
+        const far = 2000;
         this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
         this.camera.position.set(0, 10, 20);
 
@@ -177,21 +190,51 @@ class ConstellationVisualizer {
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
         this.scene.add(ambientLight);
 
+        // Sun Logic
+        // Original direction was (50, 20, 50), inverted is (-50, 20, -50)
+        // Note: The shader uses sunDirection for N dot L.
+        // If shader has sunDir (-50, 20, -50), then light comes FROM there.
+        // So we place the sun mesh there.
+        const sunDir = new THREE.Vector3(-50, 20, -50).normalize();
+
+        // Point Light at Sun Position
         const pointLight = new THREE.PointLight(0xffffff, 1.5);
-        pointLight.position.set(50, 20, 50);
+        pointLight.position.copy(sunDir).multiplyScalar(100); // Light source closer for proper falloff calculation?
+        // Actually directional light is better for sun, but point light works if far.
+        // Let's keep point light but move it to sun position.
+        pointLight.position.copy(sunDir).multiplyScalar(800);
         this.scene.add(pointLight);
+
+        // Sun Mesh
+        const sunGeo = new THREE.SphereGeometry(20, 32, 32);
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+        const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+        sunMesh.position.copy(pointLight.position);
+        this.scene.add(sunMesh);
+
+        // --- Starfield Background (Milky Way) ---
+        const starGeo = new THREE.SphereGeometry(1500, 64, 64);
+        const textureLoader = new THREE.TextureLoader(manager); // Pass manager
+        const starTex = textureLoader.load('/static/textures/8k_stars_milky_way.jpg');
+        const starMat = new THREE.MeshBasicMaterial({
+            map: starTex,
+            side: THREE.BackSide
+        });
+        const starMesh = new THREE.Mesh(starGeo, starMat);
+        this.scene.add(starMesh);
 
         // Earth
         const earthGeo = new THREE.SphereGeometry(this.earthRadius, 64, 64);
-        const textureLoader = new THREE.TextureLoader();
-        const dayTex = textureLoader.load('/static/textures/2k_earth_daymap.jpg');
-        const nightTex = textureLoader.load('/static/textures/2k_earth_nightmap.jpg');
+
+        const dayTex = textureLoader.load('/static/textures/8k_earth_daymap.jpg');
+        const nightTex = textureLoader.load('/static/textures/8k_earth_nightmap.jpg');
 
         const earthNavMat = new THREE.ShaderMaterial({
             uniforms: {
                 dayTexture: { value: dayTex },
                 nightTexture: { value: nightTex },
-                sunDirection: { value: new THREE.Vector3(50, 20, 50).normalize() }
+                // Inverted Sun Direction for correct Day/Night cycle
+                sunDirection: { value: new THREE.Vector3(-50, 20, -50).normalize() }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -398,9 +441,9 @@ class ConstellationVisualizer {
         this.earthImage.crossOrigin = 'anonymous';
         this.earthImage.onload = () => {
             this.imageLoaded = true;
-            this.staticLayerDirty = true;
+            if (this.showPopulation) this.staticLayerDirty = true;
         };
-        this.earthImage.src = '/static/textures/2k_earth_daymap.jpg';
+        this.earthImage.src = '/static/textures/8k_earth_daymap.jpg';
 
         this.popImage = new Image();
         this.popImage.crossOrigin = 'anonymous';
@@ -498,7 +541,21 @@ class ConstellationVisualizer {
         document.getElementById('play-btn').addEventListener('click', () => {
             this.isPlaying = !this.isPlaying;
             this.updatePlayButton();
+            this.updatePlayButton();
         });
+
+        // Reset Time
+        const resetBtn = document.getElementById('reset-time-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.simTime = Date.now();
+                const date = new Date(this.simTime);
+                this.utcTime.textContent = date.toISOString().substr(11, 8);
+                // We don't reset timeOffset (satellite phase) to avoid jumping, 
+                // unless we want to synchronize satellite position to exact time too.
+                // For now, we only sync Earth Rotation and Clock.
+            });
+        }
 
         // Map Overlay Controls
         const popToggle = document.getElementById('toggle-population');
@@ -660,6 +717,64 @@ class ConstellationVisualizer {
         const lon2 = lon + Math.atan2(sinBrng * sinD * cosLat, cosD - sinLat * Math.sin(lat2));
 
         return { lat: lat2, lon: lon2 };
+    }
+
+    // --- 2D Night Shadow ---
+    drawNightShadow(ctx) {
+        const date = new Date(this.simTime);
+        const utcDecimal = date.getUTCHours() + date.getUTCMinutes() / 60;
+
+        // Sun Longitude: 12:00 UTC = 0 deg. 15 deg/hr.
+        // Moves East to West (-15 deg/hr).
+        let sunLon = (12 - utcDecimal) * 15;
+
+        // Normalize to -180 to 180
+        sunLon = ((sunLon + 180) % 360 + 360) % 360 - 180;
+
+        // Night is opposite to Sun
+        let nightLon = sunLon + 180;
+        if (nightLon > 180) nightLon -= 360;
+
+        // Night covers 180 degrees (from nightLon - 90 to nightLon + 90)
+        let startLon = nightLon - 90;
+        let endLon = nightLon + 90;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Semi-transparent shadow
+
+        // Helper to Convert Lon to X
+        const lonToX = (lon) => ((lon + 180) / 360) * this.width;
+
+        // Handle Wrapping
+        // Case 1: Simple block (e.g. -45 to 45)
+        // Case 2: Wrapping over 180/-180 (e.g. 135 to -135) -> 135 to 180 AND -180 to -135
+
+        if (startLon < -180) {
+            // Wraps left side
+            // Split: (startLon+360) to 180  AND -180 to endLon
+            const x1 = lonToX(startLon + 360);
+            const w1 = lonToX(180) - x1;
+            ctx.fillRect(x1, 0, w1, this.height);
+
+            const x2 = lonToX(-180);
+            const w2 = lonToX(endLon) - x2;
+            ctx.fillRect(x2, 0, w2, this.height);
+
+        } else if (endLon > 180) {
+            // Wraps right side
+            // Split: startLon to 180 AND -180 to (endLon - 360)
+            const x1 = lonToX(startLon);
+            const w1 = lonToX(180) - x1;
+            ctx.fillRect(x1, 0, w1, this.height);
+
+            const x2 = lonToX(-180);
+            const w2 = lonToX(endLon - 360) - x2;
+            ctx.fillRect(x2, 0, w2, this.height);
+        } else {
+            // No wrap
+            const x = lonToX(startLon);
+            const w = lonToX(endLon) - x;
+            ctx.fillRect(x, 0, w, this.height);
+        }
     }
 
     // --- Logic for 3D Orbits ---
@@ -856,9 +971,39 @@ class ConstellationVisualizer {
         this.lastFrameTime = timestamp;
 
         if (this.isPlaying) {
-            this.timeOffset += (delta / 1000) * 0.2 * this.speed;
-            const date = new Date();
+            // Update satellite animation phase
+            // Real-time LEO period is approx 96 minutes = 5760 seconds
+            // 2*PI radians in 5760 seconds
+            const orbitPeriod = 5760;
+            const radPerSec = (2 * Math.PI) / orbitPeriod;
+
+            // delta is in ms, so delta/1000 is seconds
+            this.timeOffset += (delta / 1000) * radPerSec * this.speed;
+
+            // Update Simulated Time
+            this.simTime += delta * this.speed;
+            const date = new Date(this.simTime);
             this.utcTime.textContent = date.toISOString().substr(11, 8);
+
+            // Rotate Earth (3D only)
+            if (this.mode !== '2D' && this.earthMesh) {
+                // Earth rotates 360 degrees in 24 hours (86400 seconds)
+                // Greenwich Mean Time: 12:00 UTC should face the Sun? 
+                // This depends on Sun position.
+                // Our sunDirection in Shader is (50, 20, 50). 
+                // Simple approximate rotation:
+                const secondsInDay = date.getUTCHours() * 3600 + date.getUTCMinutes() * 60 + date.getUTCSeconds();
+                const rotAngle = (secondsInDay / 86400) * 2 * Math.PI;
+
+                // Add an offset if needed to align textures. 
+                // Texture usually centered on Greenwhich (0 deg).
+                // If Sun is fixed, we rotate Earth.
+                this.earthMesh.rotation.y = rotAngle - Math.PI / 2; // -90 deg offset tuning
+
+                if (this.densityMesh3D) {
+                    this.densityMesh3D.rotation.y = this.earthMesh.rotation.y;
+                }
+            }
         }
 
         // Stats
@@ -871,6 +1016,9 @@ class ConstellationVisualizer {
                 this.renderStaticLayer();
             }
             this.ctx.drawImage(this.staticCanvas, 0, 0, this.width, this.height);
+
+            // Draw Night Shadow
+            this.drawNightShadow(this.ctx);
 
             const totalSats = this.params.satellites;
 

@@ -12,28 +12,7 @@
 </head>
 
 <body>
-    <!-- Loading Screen -->
-    <div class="loader-container" id="loader-screen">
-        <div class="loader-header">
-            <span class="loader-header-text">System Loading...</span>
-            <svg class="header-star" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" fill="#171717" />
-            </svg>
-        </div>
-        <div class="loader-body" id="loaderBody">
-            <div class="body-padding">
-                <div class="info-row">
-                    <div class="percentage-display" id="percentText">0%</div>
-                    <div class="copyright-tag">Copyright @ 2026 Palatine Technologies</div>
-                </div>
-                <div class="progress-grid" id="progressGrid"></div>
-                <div class="random-bars-container">
-                    <div class="random-bar bar-1"></div>
-                    <div class="random-bar bar-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Global Header -->
     <header class="global-header">
@@ -47,7 +26,7 @@
         </div>
     </header>
 
-    <div class="app-container" id="app-container" style="opacity: 0; transition: opacity 1s;">
+    <div class="app-container" id="app-container">
         <!-- Left Panel: Visualization -->
         <div class="viz-panel">
             <div class="viz-header">
@@ -61,6 +40,29 @@
                 </div>
             </div>
             <div class="canvas-container">
+                <!-- Loading Screen (Local) -->
+                <div class="loader-container" id="loader-screen">
+                    <div class="loader-header">
+                        <span class="loader-header-text">System Loading...</span>
+                        <svg class="header-star" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" fill="#171717" />
+                        </svg>
+                    </div>
+                    <div class="loader-body" id="loaderBody">
+                        <div class="body-padding">
+                            <div class="info-row">
+                                <div class="percentage-display" id="percentText">0%</div>
+                                <div class="copyright-tag">Copyright @ 2026 Palatine Technologies</div>
+                            </div>
+                            <div class="progress-grid" id="progressGrid"></div>
+                            <div class="random-bars-container">
+                                <div class="random-bar bar-1"></div>
+                                <div class="random-bar bar-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <canvas id="orbit-canvas"></canvas>
                 <div id="orbit-container-3d"></div>
                 <div class="satellite-info" id="satellite-info">
@@ -204,7 +206,7 @@
                 </button>
                 <div class="speed-control">
                     <span>Speed:</span>
-                    <input type="range" min="0.1" max="5" step="0.1" value="1" id="speed-slider">
+                    <input type="range" min="1" max="1000" step="1" value="1" id="speed-slider">
                     <span id="speed-value">1.0x</span>
                 </div>
             </div>
@@ -213,6 +215,14 @@
             <div class="time-section">
                 <span class="time-label">UTC Time</span>
                 <div class="time-display" id="utc-time">--:--:--</div>
+                <button id="reset-time-btn" class="reset-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span>Live Sync</span>
+                </button>
             </div>
         </div>
     </div>
