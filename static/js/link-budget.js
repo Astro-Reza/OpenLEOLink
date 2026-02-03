@@ -158,61 +158,134 @@ class LinkBudgetCalculator {
         // Random start longitude
         const startLon = Math.random() * 2 * Math.PI;
 
-        // Earth station vector
-        const esX = Math.cos(latEs);
-        const esY = 0;
-        const esZ = Math.sin(latEs);
+        // Earth station vector (Initial at t=0, Lon=0)
+        // We rotate this vector by Earth rotation rate we
+        const cosLat = Math.cos(latEs);
+        const sinLat = Math.sin(latEs);
 
         const thetaArray = [];
         const visibleTheta = [];
+        const contactDurations = [];
+        let currentPass = null;
+        const allPasses = [];
 
         // Propagate orbit
         for (let i = 0; i < numSteps; i++) {
             const t = i * stepS;
-            const M = n * t;
-            const Omega = raanRate * t;
-            const OmegaEff = Omega - we * t + startLon;
+            const timeVal = t;
 
-            // Satellite unit vector
-            const satX = Math.cos(OmegaEff) * Math.cos(M) - Math.sin(OmegaEff) * Math.sin(M) * Math.cos(inc);
-            const satY = Math.sin(OmegaEff) * Math.cos(M) + Math.cos(OmegaEff) * Math.sin(M) * Math.cos(inc);
-            const satZ = Math.sin(inc) * Math.sin(M);
+            // J2 disturbed Mean Anomaly & RAAN
+            const M = n * timeVal;
+            const currentRaan = startLon + raanRate * timeVal;
 
-            // Dot product
-            const cosGamma = satX * esX + satY * esY + satZ * esZ;
+            // Sat ECI Position
+            // (Simplified Circular Orbit propagation)
+            const u = M + 0; // Argument of Latitude (assuming circ, w=0, M=u)
+            const xPrime = rOrbit * Math.cos(u);
+            const yPrime = rOrbit * Math.sin(u);
 
-            // Distance and elevation
-            const d = Math.sqrt(this.Re * this.Re + rOrbit * rOrbit - 2 * this.Re * rOrbit * cosGamma);
-            const sinTheta = (rOrbit * cosGamma - this.Re) / d;
-            const thetaRad = Math.asin(Math.max(-1, Math.min(1, sinTheta)));
+            const xSat = xPrime * Math.cos(currentRaan) - yPrime * Math.cos(inc) * Math.sin(currentRaan);
+            const ySat = xPrime * Math.sin(currentRaan) + yPrime * Math.cos(inc) * Math.cos(currentRaan);
+            const zSat = yPrime * Math.sin(inc);
 
-            thetaArray.push(thetaRad);
+            // Earth Rotation angle (thetaG)
+            const thetaG = we * timeVal;
 
-            if (thetaRad >= thetaMinRad) {
-                visibleTheta.push(thetaRad * 180 / Math.PI);
+            // Earth Station ECI Position
+            const xEsRot = (this.Re * cosLat) * Math.cos(thetaG);
+            const yEsRot = (this.Re * cosLat) * Math.sin(thetaG);
+            const zEsRot = (this.Re * sinLat);
+
+            // Range Vector (ECI)
+            const rx = xSat - xEsRot;
+            const ry = ySat - yEsRot;
+            const rz = zSat - zEsRot;
+            const range = Math.sqrt(rx * rx + ry * ry + rz * rz);
+
+            // Topocentric Coordinates System Unit Vectors
+            // Up vector (Normal to surface)
+            const ux = xEsRot / this.Re;
+            const uy = yEsRot / this.Re;
+            const uz = zEsRot / this.Re;
+
+            // East Vector (Tangent to parallel)
+            // vector = [-sin(thetaG), cos(thetaG), 0]
+            const ex = -Math.sin(thetaG);
+            const ey = Math.cos(thetaG);
+            const ez = 0;
+
+            // North Vector (Tangent to meridian)
+            // N = Up x East? No, Up x East is North? 
+            // Up(Rad) x East = North. 
+            // Let's check: Up(Equator, 0) = (1,0,0). East = (0,1,0). Up x East = (0,0,1) = North. Correct.
+            const nx = uy * ez - uz * ey;
+            const ny = uz * ex - ux * ez;
+            const nz = ux * ey - uy * ex;
+
+            // Project Range vector onto Topocentric Basis
+            const rUp = rx * ux + ry * uy + rz * uz;
+            const rEast = rx * ex + ry * ey + rz * ez;
+            const rNorth = rx * nx + ry * ny + rz * nz;
+
+            // Elevation
+            const sinEl = rUp / range;
+            const elRad = Math.asin(Math.max(-1, Math.min(1, sinEl)));
+            const elDeg = elRad * 180 / Math.PI;
+
+            // Azimuth
+            // atan2(East, North) -> 0 is North, 90 is East
+            const azRad = Math.atan2(rEast, rNorth);
+            let azDeg = azRad * 180 / Math.PI;
+            if (azDeg < 0) azDeg += 360;
+
+            thetaArray.push(elRad); // Store raw elevation for general tracking
+
+            // Check visibility
+            if (elRad >= thetaMinRad) {
+                visibleTheta.push(elDeg);
+
+                // Track Pass
+                if (!currentPass) {
+                    currentPass = { start: t, track: [] };
+                }
+                currentPass.track.push({ az: azDeg, el: elDeg });
+            } else {
+                if (currentPass) {
+                    // Pass ended
+                    currentPass.duration = t - currentPass.start;
+                    // Only keep significant passes
+                    if (currentPass.track.length > 2) { // At least 3 points to define a path
+                        contactDurations.push(currentPass.duration);
+                        allPasses.push(currentPass);
+                    }
+                    currentPass = null;
+                }
             }
         }
 
-        // Extract contact durations
-        const contactDurations = [];
-        let inContact = false;
-        let contactStart = 0;
-
-        for (let i = 0; i < thetaArray.length; i++) {
-            const visible = thetaArray[i] >= thetaMinRad;
-            if (visible && !inContact) {
-                inContact = true;
-                contactStart = i;
-            } else if (!visible && inContact) {
-                inContact = false;
-                contactDurations.push((i - contactStart) * stepS);
+        // Handle active pass at end
+        if (currentPass) {
+            currentPass.duration = totalSeconds - currentPass.start;
+            if (currentPass.track.length > 2) {
+                contactDurations.push(currentPass.duration);
+                allPasses.push(currentPass);
             }
         }
 
-        // Fit gamma distribution to visible elevation angles
+        // --- Post-Processing: Fit Gamma & PDF/CDF ---
+
+        // Identify 3D Visualization Passes (Shortest, Median, Longest)
+        allPasses.sort((a, b) => a.duration - b.duration);
+
+        const passes3D = {
+            shortest: allPasses.length > 0 ? allPasses[0] : null,
+            median: allPasses.length > 0 ? allPasses[Math.floor(allPasses.length / 2)] : null,
+            longest: allPasses.length > 0 ? allPasses[allPasses.length - 1] : null
+        };
+
         const gammaParams = this.fitGamma(visibleTheta);
 
-        // Generate PDF and CDF data
+        // Generate PDF/CDF Data (Same as before)
         const sortedTheta = [...visibleTheta].sort((a, b) => a - b);
         const minTheta = minElevation;
         const maxTheta = 90;
@@ -247,7 +320,8 @@ class LinkBudgetCalculator {
                 x: sortedTheta,
                 empiricalY: cdfEmpiricalY,
                 gammaY: cdfGammaY
-            }
+            },
+            passes3D
         };
     }
 

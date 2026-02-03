@@ -7,6 +7,8 @@
     <title>Terminal - LEO Analyzer</title>
     <meta name="description" content="Terminal interface for LEO satellite link budget analysis">
     <link rel="stylesheet" href="/static/css/orbit.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         /* Terminal Page Specific Styles */
         .scene {
@@ -148,6 +150,77 @@
             color: #aaa;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }
+
+        /* Terminal Control Panel */
+        .terminal-control-panel {
+            padding: 24px;
+        }
+
+        /* Ensure viz-panel clips incorrectly sized children and positions headers correctly */
+        .viz-panel {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Update Viz Header for Overlay Style */
+        .viz-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 24px 24px 16px;
+            /* Increased top padding */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+            z-index: 100;
+            pointer-events: none;
+            /* Allow events through transparent parts if needed, but buttons need events */
+        }
+
+        .view-toggle {
+            margin-top: 10px;
+            /* Extra spacing from top edge */
+            pointer-events: auto;
+        }
+
+        .viz-header>* {
+            pointer-events: auto;
+            /* Re-enable events for buttons */
+        }
+
+        /* Viz Footer / Legend Overlay */
+        .viz-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 16px 24px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+            z-index: 90;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        /* Legend specific dots */
+        .legend-dot.satellite-dot {
+            background-color: #fff;
+            box-shadow: 0 0 4px #fff;
+        }
+
+        .legend-dot.beam-dot {
+            background: radial-gradient(circle, rgba(255, 235, 59, 1) 0%, rgba(244, 67, 54, 1) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .viz-footer .viz-legend {
+            /* Override existing legend styles for insertion */
+            margin-top: 0;
+            background: transparent;
+            border: none;
         }
 
         .terminal-control-panel .slider-row {
@@ -523,7 +596,13 @@
     <div class="app-container">
         <!-- Left Panel: Visualization -->
         <div class="viz-panel">
-            <div class="scene">
+            <div class="viz-header">
+                <div class="view-toggle">
+                    <button id="btn-2d" class="toggle-btn active">2D</button>
+                    <button id="btn-3d" class="toggle-btn">3D</button>
+                </div>
+            </div>
+            <div class="scene" id="scene-2d">
                 <div class="beam" id="elevation-beam"></div>
                 <div class="horizon"></div>
                 <div class="dot"></div>
@@ -537,6 +616,41 @@
                         <span id="legend-max">-- dBW</span>
                     </div>
                     <div class="legend-title">Signal Power</div>
+                </div>
+            </div>
+
+            <!-- 3D Visualization Container -->
+            <div id="scene-3d" style="display: none; width: 100%; height: 100%; position: relative; background: #000;">
+            </div>
+
+            <!-- Visualization Footer (Legend) -->
+            <div class="viz-footer">
+                <!-- 2D Legend -->
+                <div id="legend-2d" class="viz-legend" style="border:none; padding:0; background:none; display:flex;">
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background:black; border:1px solid #555;"></span>
+                        <span>Station</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot beam-dot"></span>
+                        <span>Beam Coverage</span>
+                    </div>
+                </div>
+
+                <!-- 3D Legend -->
+                <div id="legend-3d" class="viz-legend" style="border:none; padding:0; background:none; display:none;">
+                    <div class="legend-item">
+                        <span class="legend-dot satellite-dot"></span>
+                        <span>Satellite</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-line" style="background:#00ffff;"></span>
+                        <span>Longest Pass</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot beam-dot"></span>
+                        <span>Sky Dome</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1307,6 +1421,11 @@
                         createCdfChart('chart-cdf', tsData);
                     }
 
+                    // Update 3D Visualizer if data available
+                    if (tsData.passes3D && window.passVisualizer3D) {
+                        window.passVisualizer3D.updatePasses(tsData.passes3D);
+                    }
+
                     // Update timestamp
                     document.getElementById('results-timestamp').textContent =
                         'Calculated at ' + new Date().toLocaleTimeString();
@@ -1337,6 +1456,373 @@
                 }
             }, 100);
         });
+
+        // --- 3D Visualization Logic ---
+        class PassVisualizer3D {
+            constructor(containerId) {
+                this.container = document.getElementById(containerId);
+                if (!this.container) return;
+
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.passes = null;
+                this.satMesh = null;
+                this.animPoints = null;
+                this.animIndex = 0;
+                this.lastAnimTime = 0;
+
+                this.init();
+            }
+
+            init() {
+                // Scene
+                this.scene = new THREE.Scene();
+                // Transparent background to show star texture underneath
+                this.scene.background = null;
+
+                // Camera
+                const aspect = this.container.clientWidth / this.container.clientHeight;
+                this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+                this.camera.position.set(2, 2, 2);
+                this.camera.up.set(0, 0, 1); // Z-up for Sky Dome coords
+
+                // Renderer
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.container.appendChild(this.renderer.domElement);
+
+                // Controls
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+
+                // Lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                this.scene.add(ambientLight);
+
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(5, 5, 10);
+                this.scene.add(dirLight);
+
+                // Dome & Grid
+                this.createSkyDome();
+
+                // Resize Handler
+                window.addEventListener('resize', () => this.handleResize());
+
+                // Animation Loop
+                this.animate();
+            }
+
+            createSkyDome() {
+                // Determine Z-up coordinate system: X=East, Y=North, Z=Up
+
+                // Ground Grid
+                const gridHelper = new THREE.GridHelper(2, 20, 0x666666, 0x333333);
+                gridHelper.rotation.x = Math.PI / 2;
+                this.scene.add(gridHelper);
+
+                // --- Heatmap Dome ---
+                // Replicates beamColoring3D.py logic: Color based on Elevation (Z)
+                // Red (Horizon/0) -> Blue (Zenith/1)
+
+                const vertexShader = `
+                    varying vec3 vPosition;
+                    varying vec3 vNormal;
+                    void main() {
+                        vPosition = position;
+                        vNormal = normalize(normal);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `;
+
+                const fragmentShader = `
+                    varying vec3 vPosition;
+                    varying vec3 vNormal;
+                    
+                    // RdYlBu Colormap approximation
+                    // T = 0 (Red), 0.5 (Yellow), 1 (Blue)
+                    
+                    vec3 colormap(float t) {
+                        // Clamp t
+                        t = clamp(t, 0.0, 1.0);
+                        
+                        // Simple Red-Yellow-Blue interpolation
+                        vec3 red = vec3(0.9, 0.2, 0.2);    // Low Z (Horizon)
+                        vec3 yellow = vec3(0.95, 0.9, 0.4); // Mid Z (45 deg)
+                        vec3 blue = vec3(0.2, 0.4, 0.9);   // High Z (Zenith)
+                        
+                        vec3 col;
+                        if (t < 0.5) {
+                            col = mix(red, yellow, t * 2.0);
+                        } else {
+                            col = mix(yellow, blue, (t - 0.5) * 2.0);
+                        }
+                        return col;
+                    }
+                    
+                    void main() {
+                        // Elevation factor
+                        // Sphere geometry is Y-up locally (Poles at +Y/-Y).
+                        // We rotated the mesh so Local Y -> World Z.
+                        // So we use vPosition.y to determine "Elevation" color.
+                        float el = vPosition.y; 
+                        
+                        vec3 baseColor = colormap(el);
+                        
+                        // Add some transparency/fading
+                        float alpha = 0.35; 
+                        
+                        // Rim lighting effect
+                        vec3 viewDir = normalize(cameraPosition - vPosition);
+                        float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), 2.0);
+                        alpha += fresnel * 0.3;
+                        
+                        gl_FragColor = vec4(baseColor, alpha);
+                    }
+                `;
+
+                const domeGeo = new THREE.SphereGeometry(1, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+                const domeMat = new THREE.ShaderMaterial({
+                    vertexShader: vertexShader,
+                    fragmentShader: fragmentShader,
+                    transparent: true,
+                    side: THREE.DoubleSide,
+                    depthWrite: false // Allow seeing through to tracks inside
+                });
+
+                const domeMesh = new THREE.Mesh(domeGeo, domeMat);
+                domeMesh.rotation.x = Math.PI / 2; // Rotate to Z-up
+                this.scene.add(domeMesh);
+
+                // Add Directions
+                this.addLabel('N', 0, 1.2, 0);
+                this.addLabel('S', 0, -1.2, 0);
+                this.addLabel('E', 1.2, 0, 0);
+                this.addLabel('W', -1.2, 0, 0);
+                this.addLabel('Zenith', 0, 0, 1.1, '#00ffff');
+            }
+
+            addLabel(text, x, y, z, colorStr = '#ffffff') {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 128; // Power of 2
+                canvas.height = 64;
+
+                context.font = 'Bold 32px Arial';
+                context.fillStyle = colorStr;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(text, 64, 32);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+                const sprite = new THREE.Sprite(material);
+
+                sprite.position.set(x, y, z);
+                sprite.scale.set(0.5, 0.25, 1); // Adjust aspect ratio
+
+                // Add to scene (or separate labels group)
+                this.scene.add(sprite);
+            }
+
+            updatePasses(passesData) {
+                // Clear old lines
+                // Remove group if exists
+                const oldGroup = this.scene.getObjectByName('passes');
+                if (oldGroup) this.scene.remove(oldGroup);
+
+                // Remove old satellite
+                const oldSat = this.scene.getObjectByName('demo-sat');
+                if (oldSat) this.scene.remove(oldSat);
+
+                if (!passesData) return;
+
+
+                const group = new THREE.Group();
+                group.name = 'passes';
+
+                // Keep track of the longest pass for animation
+                let longestPoints = null;
+
+                const types = [
+                    { data: passesData.shortest, color: 0xff4444, name: 'Short' },   // Red
+                    { data: passesData.median, color: 0x888888, name: 'Median' },    // Grey
+                    { data: passesData.longest, color: 0x00ffff, name: 'Long' }      // Cyan
+                ];
+
+                types.forEach(type => {
+                    if (!type.data || !type.data.track) return;
+
+                    const points = [];
+                    type.data.track.forEach(pt => {
+                        const azRad = pt.az * Math.PI / 180;
+                        const elRad = pt.el * Math.PI / 180;
+
+                        // Convert Az/El to XYZ (Z-up)
+                        // Standard math: x = r cos(el) sin(az), y = r cos(el) cos(az)
+                        // Azimuth 0 is North (+Y), 90 is East (+X)
+
+                        const r = 1.02; // Slightly above dome
+                        const x = r * Math.cos(elRad) * Math.sin(azRad);
+                        const y = r * Math.cos(elRad) * Math.cos(azRad);
+                        const z = r * Math.sin(elRad);
+
+                        points.push(new THREE.Vector3(x, y, z));
+
+                        // Add start/end markers
+                        if (pt === type.data.track[0]) {
+                            // Rise
+                            group.add(this.createMarker(x, y, z, type.color, 'cone'));
+                        }
+                        if (pt === type.data.track[type.data.track.length - 1]) {
+                            // Set
+                            group.add(this.createMarker(x, y, z, type.color, 'box'));
+                        }
+                    });
+
+                    // Store longest points for animation
+                    if (type.name === 'Long') {
+                        longestPoints = points;
+                    }
+
+                    const geom = new THREE.BufferGeometry().setFromPoints(points);
+                    const mat = new THREE.LineBasicMaterial({ color: type.color, linewidth: 2 });
+                    const line = new THREE.Line(geom, mat);
+                    group.add(line);
+                });
+
+                this.scene.add(group);
+
+                // Start Animation if we have points
+                if (longestPoints && longestPoints.length > 1) {
+                    this.startSatelliteAnimation(longestPoints);
+                }
+            }
+
+            startSatelliteAnimation(points) {
+                // Remove old satellite
+                const oldSat = this.scene.getObjectByName('demo-sat');
+                if (oldSat) this.scene.remove(oldSat);
+
+                // Create Satellite Mesh
+                const geo = new THREE.SphereGeometry(0.04, 16, 16);
+                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                this.satMesh = new THREE.Mesh(geo, mat);
+                this.satMesh.name = 'demo-sat';
+                this.scene.add(this.satMesh);
+
+                this.animPoints = points;
+                this.animIndex = 0;
+                this.lastAnimTime = 0;
+            }
+
+            updateAnimation() {
+                if (!this.satMesh || !this.animPoints || this.animPoints.length < 2) return;
+
+                // Simple linear interpolation
+                const speed = 0.005; // Progression speed
+                this.animIndex += speed;
+
+                if (this.animIndex >= this.animPoints.length - 1) {
+                    this.animIndex = 0; // Loop
+                }
+
+                const idx = Math.floor(this.animIndex);
+                const nextIdx = (idx + 1) % this.animPoints.length; // Safety (though loop handles it)
+                const t = this.animIndex - idx;
+
+                const p1 = this.animPoints[idx];
+                const p2 = this.animPoints[idx + 1] || this.animPoints[0]; // Fallback
+
+                // Lerp
+                this.satMesh.position.lerpVectors(p1, p2, t);
+                this.satMesh.lookAt(0, 0, 0); // Optional orientation
+            }
+
+            createMarker(x, y, z, color, shape) {
+                let geo;
+                if (shape === 'cone') geo = new THREE.ConeGeometry(0.03, 0.08, 8);
+                else geo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+
+                const mat = new THREE.MeshBasicMaterial({ color: color });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(x, y, z);
+                mesh.lookAt(0, 0, 0);
+                return mesh;
+            }
+
+            handleResize() {
+                if (!this.camera || !this.renderer || !this.container) return;
+                const width = this.container.clientWidth;
+                const height = this.container.clientHeight;
+                if (window.getComputedStyle(this.container).display === 'none') return;
+
+                this.camera.aspect = width / height;
+                this.camera.updateProjectionMatrix();
+                // Check if width/height are 0
+                if (width > 0 && height > 0) {
+                    this.renderer.setSize(width, height);
+                }
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                if (this.controls) this.controls.update();
+
+                this.updateAnimation(); // <--- Add animation step
+
+                if (this.renderer && this.scene && this.camera) {
+                    this.renderer.render(this.scene, this.camera);
+                }
+            }
+        }
+
+        // Initialize 3D View
+        // Wait for DOM
+        setTimeout(() => {
+            window.passVisualizer3D = new PassVisualizer3D('scene-3d');
+
+            // Handle Toggle
+            const btn2D = document.getElementById('btn-2d');
+            const btn3D = document.getElementById('btn-3d');
+            const scene2D = document.getElementById('scene-2d');
+            const scene3D = document.getElementById('scene-3d');
+
+            const legend2D = document.getElementById('legend-2d');
+            const legend3D = document.getElementById('legend-3d');
+
+            btn2D.addEventListener('click', () => {
+                scene2D.style.display = 'flex'; // Restore flex for centering
+                scene3D.style.display = 'none';
+
+                legend2D.style.display = 'flex';
+                legend3D.style.display = 'none';
+
+                btn2D.classList.add('active');
+                btn3D.classList.remove('active');
+                btn2D.style = '';
+                btn3D.style = '';
+            });
+
+            btn3D.addEventListener('click', () => {
+                scene2D.style.display = 'none';
+                scene3D.style.display = 'block';
+
+                legend2D.style.display = 'none';
+                legend3D.style.display = 'flex';
+
+                if (window.passVisualizer3D) window.passVisualizer3D.handleResize();
+
+                btn3D.classList.add('active');
+                btn2D.classList.remove('active');
+                btn2D.style = '';
+                btn3D.style = '';
+            });
+        }, 500);
     </script>
 
 </body>
