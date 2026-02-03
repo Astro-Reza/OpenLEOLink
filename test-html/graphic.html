@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Link Budget - Smooth Animation</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --axis-color: #ffffff;
+            --text-color: #e0e0e0;
+
+            /* Dimensions */
+            --chart-height: 400px;
+            --bar-width: 60px;
+            --bar-gap: 10px;
+
+            /* Colors */
+            --c-green: #00e676;
+            --c-red: #ff1744;
+            --c-cyan: #00e5ff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        /* --- WRAPPER --- */
+        .link-budget-wrapper {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            background: #1a1a1a;
+            padding: 40px 50px;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        /* --- SIDE LABELS --- */
+        .label-text {
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            z-index: 2;
+            color: #fff;
+        }
+
+        .label-sat {
+            margin-right: 20px;
+        }
+
+        .label-gnd {
+            margin-left: 20px;
+            text-align: right;
+        }
+
+        /* --- CHART TRACK --- */
+        .chart-track {
+            position: relative;
+            display: flex;
+            align-items: center;
+            height: var(--chart-height);
+            padding: 0 5px;
+            overflow: hidden;
+        }
+
+        /* The Straight Axis Line */
+        .chart-track::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.2);
+            z-index: 0;
+        }
+
+        /* --- SIGNAL NOISE WAVE --- */
+        .signal-container {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            transform: translateY(-50%);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.6;
+            mix-blend-mode: screen;
+        }
+
+        .signal-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.8);
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            animation: scrollSignalRight 8s linear infinite;
+        }
+
+        @keyframes scrollSignalRight {
+            0% {
+                transform: translateX(-50%);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+
+
+        /* --- COMPONENTS --- */
+
+        /* Antennas */
+        .c-shape {
+            width: 30px;
+            height: 80px;
+            border: 4px solid white;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+            background-color: #1a1a1a;
+        }
+
+        .c-sat {
+            border-right: none;
+            border-radius: 100px 0 0 100px;
+            margin-right: var(--bar-gap);
+        }
+
+        .c-gnd {
+            border-left: none;
+            border-radius: 0 100px 100px 0;
+            margin-right: var(--bar-gap);
+            margin-left: 10px;
+        }
+
+        /* Column Container */
+        .bar-column {
+            position: relative;
+            width: var(--bar-width);
+            height: 100%;
+            margin-right: var(--bar-gap);
+            pointer-events: none;
+        }
+
+        /* The Candle (Visible Bar) */
+        .candle {
+            position: absolute;
+            width: 100%;
+            z-index: 1;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            /* Hover effect */
+            pointer-events: auto;
+
+            /* Initial State for Animation */
+            opacity: 0;
+            transform: scaleY(0);
+
+            /* UPDATED: 'ease-out' removes the bounce */
+            animation: growCandle 0.6s ease-out forwards;
+        }
+
+        .candle:hover {
+            transform: scaleY(1) scaleX(1.1) !important;
+            z-index: 10;
+            filter: brightness(1.2);
+        }
+
+        /* Animation Keyframes */
+        @keyframes growCandle {
+            0% {
+                opacity: 0;
+                transform: scaleY(0);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scaleY(1);
+            }
+        }
+
+        /* Labels */
+        .label-top {
+            position: absolute;
+            top: 90px;
+            width: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #999;
+            letter-spacing: 0.5px;
+            line-height: 1.1;
+
+            opacity: 0;
+            animation: fadeInLabel 0.5s ease forwards;
+        }
+
+        @keyframes fadeInLabel {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .label-value {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 1px 1px 0px #000;
+            z-index: 5;
+            white-space: nowrap;
+        }
+
+        /* --- WATERFALL POSITIONS & SEQUENCING --- */
+
+        /* 1. Tx EIRP (+56.0) */
+        .candle.eirp {
+            background: var(--c-green);
+            top: calc(50% - 80px);
+            height: 80px;
+            transform-origin: bottom;
+            animation-delay: 0.2s;
+        }
+
+        .bar-column:nth-child(2) .label-top {
+            animation-delay: 0.2s;
+        }
+
+        /* 2. Path Loss (-183.7) */
+        .candle.path {
+            background: var(--c-red);
+            top: calc(50% - 80px);
+            height: 200px;
+            transform-origin: top;
+            animation-delay: 0.6s;
+        }
+
+        .bar-column:nth-child(3) .label-top {
+            animation-delay: 0.6s;
+        }
+
+        /* 3. Atmos Loss (-1.3) */
+        .candle.atmos {
+            background: var(--c-red);
+            top: calc(50% + 120px);
+            height: 20px;
+            transform-origin: top;
+            animation-delay: 1.0s;
+        }
+
+        .bar-column:nth-child(4) .label-top {
+            animation-delay: 1.0s;
+        }
+
+
+        /* 4. Rx Gain (+40.0) */
+        .candle.rx {
+            background: var(--c-green);
+            top: calc(50% + 80px);
+            height: 60px;
+            transform-origin: bottom;
+            animation-delay: 1.4s;
+        }
+
+        .bar-column:nth-child(6) .label-top {
+            animation-delay: 1.4s;
+        }
+
+
+        /* 5. Misc Loss (-2.0) */
+        .candle.misc {
+            background: var(--c-red);
+            top: calc(50% + 80px);
+            height: 20px;
+            transform-origin: top;
+            animation-delay: 1.8s;
+        }
+
+        .bar-column:nth-child(7) .label-top {
+            animation-delay: 1.8s;
+        }
+
+
+        /* 6. Received Power (-91.0) */
+        .candle.result {
+            background: var(--c-cyan);
+            top: 50%;
+            height: 100px;
+            transform-origin: top;
+            animation-delay: 2.2s;
+        }
+
+        .bar-column:nth-child(8) .label-top {
+            animation-delay: 2.2s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="link-budget-wrapper">
+
+        <div class="label-text label-sat">SATELLITE</div>
+
+        <div class="chart-track">
+
+            <div class="signal-container">
+                <svg class="signal-svg" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                    <path d="M0,50 L10,45 L20,55 L30,48 L40,52 L50,40 L60,60 L70,45 L80,55 L90,50 
+                         L100,50 L110,42 L120,58 L130,48 L140,52 L150,35 L160,65 L170,48 L180,52 L190,50 
+                         L200,50 L210,55 L220,45 L230,52 L240,48 L250,30 L260,70 L270,45 L280,55 L290,50 
+                         L300,50 L310,48 L320,52 L330,45 L340,55 L350,40 L360,60 L370,52 L380,48 L390,50 
+                         L400,50 L410,55 L420,45 L430,58 L440,42 L450,35 L460,65 L470,50 L480,50 L490,50 
+                         L500,50 L510,45 L520,55 L530,48 L540,52 L550,40 L560,60 L570,45 L580,55 L590,50 
+                         L600,50 L610,42 L620,58 L630,48 L640,52 L650,35 L660,65 L670,48 L680,52 L690,50 
+                         L700,50 L710,55 L720,45 L730,52 L740,48 L750,30 L760,70 L770,45 L780,55 L790,50 
+                         L800,50 L810,48 L820,52 L830,45 L840,55 L850,40 L860,60 L870,52 L880,48 L890,50 
+                         L900,50 L910,55 L920,45 L930,58 L940,42 L950,35 L960,65 L970,50 L980,50 L990,50 L1000,50" />
+                </svg>
+            </div>
+
+            <div class="c-shape c-sat"></div>
+
+            <div class="bar-column">
+                <div class="label-top">Tx EIRP</div>
+                <div class="candle eirp">
+                    <span class="label-value">+56.0</span>
+                </div>
+            </div>
+
+            <div class="bar-column">
+                <div class="label-top">Path Loss</div>
+                <div class="candle path">
+                    <span class="label-value">-183.7</span>
+                </div>
+            </div>
+
+            <div class="bar-column">
+                <div class="label-top">Atmos Loss</div>
+                <div class="candle atmos">
+                    <span class="label-value" style="font-size: 0.7rem;">-1.3</span>
+                </div>
+            </div>
+
+            <div class="c-shape c-gnd"></div>
+
+            <div class="bar-column">
+                <div class="label-top">Rx Gain</div>
+                <div class="candle rx">
+                    <span class="label-value">+40.0</span>
+                </div>
+            </div>
+
+            <div class="bar-column">
+                <div class="label-top">Misc Loss</div>
+                <div class="candle misc">
+                    <span class="label-value" style="font-size: 0.7rem;">-2.0</span>
+                </div>
+            </div>
+
+            <div class="bar-column">
+                <div class="label-top">Received Power</div>
+                <div class="candle result">
+                    <span class="label-value">-91.0</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="label-text label-gnd">GROUND</div>
+
+    </div>
+
+</body>
+
+</html>

@@ -671,6 +671,461 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        /* --- LINK BUDGET WATERFALL CSS --- */
+        /* --- LINK BUDGET WATERFALL CSS --- */
+        .link-budget-wrapper {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            background: #D9D9D9;
+            /* Control Panel Color */
+            padding: 20px 30px;
+            /* Reduced Padding */
+            border-radius: 12px;
+            box-shadow: none;
+            /* Removed Shadow */
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+            margin-top: 20px;
+            box-sizing: border-box;
+            color: #171717;
+            /* Dark text */
+        }
+
+        /* --- SIDE LABELS --- */
+        .lb-label-text {
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            z-index: 2;
+            color: #171717;
+            /* Dark text */
+        }
+
+        .lb-label-sat {
+            margin-right: 20px;
+        }
+
+        .lb-label-gnd {
+            margin-left: 20px;
+            text-align: right;
+        }
+
+        /* --- CHART TRACK --- */
+        .lb-chart-track {
+            position: relative;
+            display: flex;
+            align-items: center;
+            height: 300px;
+            /* Reduced Height from 400px */
+            padding: 0 5px;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .lb-chart-track::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: rgba(0, 0, 0, 0.2);
+            /* Darker axis line */
+            z-index: 0;
+        }
+
+        /* --- SIGNAL NOISE WAVE --- */
+        .lb-signal-container {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            transform: translateY(-50%);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.4;
+            mix-blend-mode: multiply;
+            /* Better for light bg */
+        }
+
+        .lb-signal-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            fill: none;
+            stroke: rgba(0, 0, 0, 0.3);
+            /* Dark stroke */
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            animation: scrollSignalRight 8s linear infinite;
+        }
+
+        @keyframes scrollSignalRight {
+            0% {
+                transform: translateX(-50%);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+
+        /* --- COMPONENTS --- */
+        .lb-c-shape {
+            width: 30px;
+            height: 80px;
+            border: 4px solid #171717;
+            /* Dark border */
+            box-sizing: border-box;
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+            background-color: #D9D9D9;
+            /* Match wrapper bg */
+        }
+
+        .lb-c-sat {
+            border-right: none;
+            border-radius: 100px 0 0 100px;
+            margin-right: 10px;
+        }
+
+        .lb-c-gnd {
+            border-left: none;
+            border-radius: 0 100px 100px 0;
+            margin-right: 10px;
+            margin-left: 10px;
+        }
+
+        .lb-bar-column {
+            position: relative;
+            width: 60px;
+            height: 100%;
+            margin-right: 10px;
+            pointer-events: none;
+            flex: 1;
+        }
+
+        .lb-candle {
+            position: absolute;
+            width: 100%;
+            z-index: 1;
+            /* Box shadow removed */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            pointer-events: auto;
+            opacity: 0;
+            transform: scaleY(0);
+            animation: growCandle 0.6s ease-out forwards;
+        }
+
+        .lb-candle:hover {
+            transform: scaleY(1) scaleX(1.1) !important;
+            z-index: 10;
+            filter: brightness(1.2);
+        }
+
+        @keyframes growCandle {
+            0% {
+                opacity: 0;
+                transform: scaleY(0);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scaleY(1);
+            }
+        }
+
+        /* Labels */
+        .lb-label-top {
+            position: absolute;
+            top: 40px;
+            /* Adjusted from 90px */
+            width: 100%;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #444;
+            /* Darker label */
+            letter-spacing: 0.5px;
+            line-height: 1.1;
+            opacity: 0;
+            animation: fadeInLabel 0.5s ease forwards;
+        }
+
+        /* --- SIDE LABELS --- */
+        .lb-label-text {
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            z-index: 2;
+            color: #171717;
+            /* Dark text */
+        }
+
+        .lb-label-sat {
+            margin-right: 20px;
+        }
+
+        .lb-label-gnd {
+            margin-left: 20px;
+            text-align: right;
+        }
+
+        /* --- CHART TRACK --- */
+        .lb-chart-track {
+            position: relative;
+            display: flex;
+            align-items: center;
+            height: 400px;
+            padding: 0 5px;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .lb-chart-track::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: rgba(0, 0, 0, 0.2);
+            /* Darker axis line */
+            z-index: 0;
+        }
+
+        /* --- SIGNAL NOISE WAVE --- */
+        .lb-signal-container {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            transform: translateY(-50%);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.4;
+            mix-blend-mode: multiply;
+            /* Better for light bg */
+        }
+
+        .lb-signal-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            fill: none;
+            stroke: rgba(0, 0, 0, 0.3);
+            /* Dark stroke */
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            animation: scrollSignalRight 8s linear infinite;
+        }
+
+        @keyframes scrollSignalRight {
+            0% {
+                transform: translateX(-50%);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+
+        /* --- COMPONENTS --- */
+        .lb-c-shape {
+            width: 30px;
+            height: 80px;
+            border: 4px solid #171717;
+            /* Dark border */
+            box-sizing: border-box;
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+            background-color: #D9D9D9;
+            /* Match wrapper bg */
+        }
+
+        .lb-c-sat {
+            border-right: none;
+            border-radius: 100px 0 0 100px;
+            margin-right: 10px;
+        }
+
+        .lb-c-gnd {
+            border-left: none;
+            border-radius: 0 100px 100px 0;
+            margin-right: 10px;
+            margin-left: 10px;
+        }
+
+        .lb-bar-column {
+            position: relative;
+            width: 60px;
+            height: 100%;
+            margin-right: 10px;
+            pointer-events: none;
+            flex: 1;
+        }
+
+        .lb-candle {
+            position: absolute;
+            width: 100%;
+            z-index: 1;
+            /* Box shadow removed */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            pointer-events: auto;
+            opacity: 0;
+            transform: scaleY(0);
+            animation: growCandle 0.6s ease-out forwards;
+        }
+
+        .lb-candle:hover {
+            transform: scaleY(1) scaleX(1.1) !important;
+            z-index: 10;
+            filter: brightness(1.2);
+        }
+
+        @keyframes growCandle {
+            0% {
+                opacity: 0;
+                transform: scaleY(0);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scaleY(1);
+            }
+        }
+
+        /* Labels */
+        .lb-label-top {
+            position: absolute;
+            top: 90px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #444;
+            /* Darker label */
+            letter-spacing: 0.5px;
+            line-height: 1.1;
+            opacity: 0;
+            animation: fadeInLabel 0.5s ease forwards;
+        }
+
+        @keyframes fadeInLabel {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .lb-label-value {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #fff;
+            /* Keep White */
+            text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+            z-index: 5;
+            white-space: nowrap;
+        }
+
+        /* Bar Colors & Positions */
+        .lb-candle.eirp {
+            background: #00e676;
+            top: calc(50% - 80px);
+            /* Base height for +56 */
+            height: 80px;
+            transform-origin: bottom;
+            animation-delay: 0.2s;
+        }
+
+        .lb-bar-column:nth-child(2) .lb-label-top {
+            animation-delay: 0.2s;
+        }
+
+        .lb-candle.path {
+            background: #ff1744;
+            top: calc(50% - 80px);
+            height: 200px;
+            transform-origin: top;
+            animation-delay: 0.6s;
+        }
+
+        .lb-bar-column:nth-child(3) .lb-label-top {
+            animation-delay: 0.6s;
+        }
+
+        .lb-candle.atmos {
+            background: #ff1744;
+            top: calc(50% + 120px);
+            height: 20px;
+            transform-origin: top;
+            animation-delay: 1.0s;
+        }
+
+        .lb-bar-column:nth-child(4) .lb-label-top {
+            animation-delay: 1.0s;
+        }
+
+        .lb-candle.rx {
+            background: #00e676;
+            top: calc(50% + 80px);
+            /* Starts from bottom of atmos */
+            height: 60px;
+            transform-origin: bottom;
+            animation-delay: 1.4s;
+        }
+
+        .lb-bar-column:nth-child(6) .lb-label-top {
+            animation-delay: 1.4s;
+        }
+
+        .lb-candle.misc {
+            background: #ff1744;
+            top: calc(50% + 80px);
+            /* 60px up from bottom baseline */
+            height: 20px;
+            transform-origin: top;
+            animation-delay: 1.8s;
+        }
+
+        .lb-bar-column:nth-child(7) .lb-label-top {
+            animation-delay: 1.8s;
+        }
+
+        .lb-candle.result {
+            background: #00e5ff;
+            top: 50%;
+            /* Centered around 0 line */
+            height: 100px;
+            transform-origin: top;
+            animation-delay: 2.2s;
+        }
+
+        .lb-bar-column:nth-child(8) .lb-label-top {
+            animation-delay: 2.2s;
+        }
     </style>
 </head>
 
@@ -883,6 +1338,81 @@
             <h3>Analysis Results</h3>
             <span class="simulation-info" id="simulation-info">60 days @ 10s intervals</span>
             <span class="results-timestamp" id="results-timestamp">--</span>
+        </div>
+
+        <!-- Link Budget Waterfall Chart -->
+        <div class="link-budget-wrapper">
+
+            <div class="lb-label-text lb-label-sat">SATELLITE</div>
+
+            <div class="lb-chart-track">
+
+                <div class="lb-signal-container">
+                    <svg class="lb-signal-svg" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                        <path
+                            d="M0,50 L10,45 L20,55 L30,48 L40,52 L50,40 L60,60 L70,45 L80,55 L90,50 
+                             L100,50 L110,42 L120,58 L130,48 L140,52 L150,35 L160,65 L170,48 L180,52 L190,50 
+                             L200,50 L210,55 L220,45 L230,52 L240,48 L250,30 L260,70 L270,45 L280,55 L290,50 
+                             L300,50 L310,48 L320,52 L330,45 L340,55 L350,40 L360,60 L370,52 L380,48 L390,50 
+                             L400,50 L410,55 L420,45 L430,58 L440,42 L450,35 L460,65 L470,50 L480,50 L490,50 
+                             L500,50 L510,45 L520,55 L530,48 L540,52 L550,40 L560,60 L570,45 L580,55 L590,50 
+                             L600,50 L610,42 L620,58 L630,48 L640,52 L650,35 L660,65 L670,48 L680,52 L690,50 
+                             L700,50 L710,55 L720,45 L730,52 L740,48 L750,30 L760,70 L770,45 L780,55 L790,50 
+                             L800,50 L810,48 L820,52 L830,45 L840,55 L850,40 L860,60 L870,52 L880,48 L890,50 
+                             L900,50 L910,55 L920,45 L930,58 L940,42 L950,35 L960,65 L970,50 L980,50 L990,50 L1000,50" />
+                    </svg>
+                </div>
+
+                <div class="lb-c-shape lb-c-sat"></div>
+
+                <div class="lb-bar-column">
+                    <div class="lb-label-top">Tx EIRP</div>
+                    <div class="lb-candle eirp">
+                        <span class="lb-label-value" id="lb-val-eirp">--</span>
+                    </div>
+                </div>
+
+                <div class="lb-bar-column">
+                    <div class="lb-label-top">Path Loss</div>
+                    <div class="lb-candle path">
+                        <span class="lb-label-value" id="lb-val-path">--</span>
+                    </div>
+                </div>
+
+                <div class="lb-bar-column">
+                    <div class="lb-label-top">Atmos Loss</div>
+                    <div class="lb-candle atmos">
+                        <span class="lb-label-value" id="lb-val-atmos">--</span>
+                    </div>
+                </div>
+
+                <div class="lb-c-shape lb-c-gnd"></div>
+
+                <div class="lb-bar-column">
+                    <div class="lb-label-top">Rx Gain</div>
+                    <div class="lb-candle rx">
+                        <span class="lb-label-value" id="lb-val-gain">--</span>
+                    </div>
+                </div>
+
+                <div class="lb-bar-column">
+                    <div class="lb-label-top">Misc Loss</div>
+                    <div class="lb-candle misc">
+                        <span class="lb-label-value" id="lb-val-misc">-2.0</span>
+                    </div>
+                </div>
+
+                <div class="lb-bar-column">
+                    <div class="lb-label-top">Received Power</div>
+                    <div class="lb-candle result">
+                        <span class="lb-label-value" id="lb-val-pr">--</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="lb-label-text lb-label-gnd">GROUND</div>
+
         </div>
 
         <!-- Metrics Grid -->
@@ -1551,6 +2081,29 @@
                     createPowerChart('chart-power-boxplot', data);
                     createScatterChart('chart-range-elevation', data.chartData.thetaSamples, data.chartData.slantRangeSamples, '#ff9800', 'Elevation Angle (deg)', 'Slant Range (km)');
                     createHistogramChart('chart-path-loss', data.chartData.fsplSamples, '#e91e63', 'Total Attenuation (dB)', 'Frequency');
+
+                    // --- Update Link Budget Waterfall ---
+                    document.getElementById('lb-val-eirp').textContent = `+${params.eirp.toFixed(1)}`;
+                    document.getElementById('lb-val-gain').textContent = `+${params.gr.toFixed(1)}`;
+                    document.getElementById('lb-val-misc').textContent = `-2.0`;
+                    document.getElementById('lb-val-pr').textContent = data.expected_pr.toFixed(1);
+
+                    // Calculate Averages for Waterfall Breakdown
+                    if (data.chartData.slantRangeSamples && data.chartData.slantRangeSamples.length > 0) {
+                        const avgRange = data.chartData.slantRangeSamples.reduce((a, b) => a + b, 0) / data.chartData.slantRangeSamples.length;
+                        const avgThetaDeg = data.chartData.thetaSamples.reduce((a, b) => a + b, 0) / data.chartData.thetaSamples.length;
+                        const avgThetaRad = avgThetaDeg * (Math.PI / 180);
+
+                        // Recalculate component losses
+                        const avgFSPL = 92.45 + 20 * Math.log10(avgRange) + 20 * Math.log10(params.frequency);
+                        const avgAtmos = 0.5 / Math.sin(avgThetaRad);
+
+                        document.getElementById('lb-val-path').textContent = `-${avgFSPL.toFixed(1)}`;
+                        document.getElementById('lb-val-atmos').textContent = `-${avgAtmos.toFixed(1)}`;
+                    } else {
+                        document.getElementById('lb-val-path').textContent = '--';
+                        document.getElementById('lb-val-atmos').textContent = '--';
+                    }
 
                     // Run time-series simulation (60 days @ 10s intervals)
                     const tsData = calculator.runTimeSeriesSimulation(params, 60, 10);
