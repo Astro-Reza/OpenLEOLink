@@ -16,23 +16,52 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #1e1e1e;
+            background-color: #000;
+            background-image: url('/static/textures/8k_stars_milky_way.jpg');
+            background-size: cover;
+            background-position: center;
             overflow: hidden;
         }
 
-        /* The single white beam */
+        /* The beam - visualizes coverage area as a pie/arc based on min elevation */
         .beam {
             position: absolute;
             bottom: 30%;
             left: 50%;
             width: 150vmax;
             height: 150vmax;
-            background-color: #ffffff;
-            clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
-            transform: translateX(-50%);
-            transform-origin: bottom center;
-            animation: flashlight-wave 4s ease-in-out infinite alternate;
+            border-radius: 50%;
+            background: conic-gradient(from calc(360deg - var(--arc-angle, 90deg) / 2),
+                    rgba(255, 255, 255, 0.85) 0deg,
+                    rgba(255, 255, 255, 0.85) var(--arc-angle, 90deg),
+                    transparent var(--arc-angle, 90deg),
+                    transparent 360deg);
+            transform: translate(-50%, 50%);
+            transition: background 0.3s ease;
             z-index: 10;
+            opacity: 0.5;
+        }
+
+        /* Heatmap active state */
+        .beam.heatmap-active {
+            background: conic-gradient(from calc(360deg - var(--arc-angle, 90deg) / 2),
+                    rgba(244, 67, 54, 0.85) 0deg,
+                    rgba(255, 235, 59, 0.85) calc(var(--arc-angle, 90deg) / 4),
+                    rgba(33, 150, 243, 0.85) calc(var(--arc-angle, 90deg) / 2),
+                    rgba(255, 235, 59, 0.85) calc(3 * var(--arc-angle, 90deg) / 4),
+                    rgba(244, 67, 54, 0.85) var(--arc-angle, 90deg),
+                    transparent var(--arc-angle, 90deg),
+                    transparent 360deg);
+        }
+
+        /* Radial fade overlay for the beam */
+        .beam::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at center, transparent 0%, rgba(30, 30, 30, 0.8) 100%);
         }
 
         /* The grey horizon hill */
@@ -60,18 +89,67 @@
             z-index: 30;
         }
 
-        /* Animation: Rotates the beam left and right from the center pivot */
-        @keyframes flashlight-wave {
-            from {
-                transform: translateX(-50%) rotate(-15deg);
-            }
-
-            to {
-                transform: translateX(-50%) rotate(15deg);
-            }
+        /* Elevation angle indicator text */
+        .elevation-indicator {
+            position: absolute;
+            bottom: 32%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+            z-index: 25;
+            opacity: 0.9;
         }
 
-        /* Terminal specific control panel adjustments */
+
+
+        /* Signal Legend */
+        .signal-legend {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 30;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .signal-legend.visible {
+            opacity: 1;
+        }
+
+        .legend-bar {
+            height: 8px;
+            width: 100%;
+            border-radius: 4px;
+            background: linear-gradient(to right, #f44336, #ffeb3b, #2196f3);
+            margin-bottom: 4px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #fff;
+            margin-bottom: 2px;
+        }
+
+        .legend-title {
+            text-align: center;
+            font-size: 10px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         .terminal-control-panel .slider-row {
             margin-bottom: 12px;
         }
@@ -140,6 +218,16 @@
         .results-timestamp {
             font-size: 12px;
             color: #666;
+        }
+
+        .simulation-info {
+            font-size: 11px;
+            color: #fff;
+            background: #505544;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
         }
 
         /* Metrics Grid */
@@ -224,6 +312,12 @@
             text-align: center;
             background: #f5f5f5;
             border-top: 1px solid #e0e0e0;
+            cursor: help;
+            transition: background 0.2s ease;
+        }
+
+        .chart-title:hover {
+            background: #ebebeb;
         }
 
         /* Loading State - Palatine Style */
@@ -430,9 +524,20 @@
         <!-- Left Panel: Visualization -->
         <div class="viz-panel">
             <div class="scene">
-                <div class="beam"></div>
+                <div class="beam" id="elevation-beam"></div>
                 <div class="horizon"></div>
                 <div class="dot"></div>
+                <div class="elevation-indicator" id="elevation-indicator">Min Elevation: 10°</div>
+
+                <!-- Signal Quality Legend -->
+                <div class="signal-legend" id="signal-legend">
+                    <div class="legend-bar"></div>
+                    <div class="legend-labels">
+                        <span id="legend-min">-- dBW</span>
+                        <span id="legend-max">-- dBW</span>
+                    </div>
+                    <div class="legend-title">Signal Power</div>
+                </div>
             </div>
         </div>
 
@@ -563,6 +668,7 @@
     <div class="results-panel" id="results-panel">
         <div class="results-header">
             <h3>Analysis Results</h3>
+            <span class="simulation-info" id="simulation-info">60 days @ 10s intervals</span>
             <span class="results-timestamp" id="results-timestamp">--</span>
         </div>
 
@@ -608,25 +714,61 @@
                 <div class="metric-value" id="metric-samples">--</div>
                 <span class="metric-unit"></span>
             </div>
+            <div class="metric-card">
+                <div class="metric-label">Mean Contact Duration</div>
+                <div class="metric-value" id="metric-contact-duration">--</div>
+                <span class="metric-unit">s</span>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total Contacts</div>
+                <div class="metric-value" id="metric-num-contacts">--</div>
+                <span class="metric-unit"></span>
+            </div>
         </div>
 
         <!-- Charts Grid -->
         <div class="charts-grid">
             <div class="chart-card">
                 <div class="chart-wrapper"><canvas id="chart-elevation-pdf"></canvas></div>
-                <div class="chart-title">Elevation Angle Distribution</div>
+                <div class="chart-title"
+                    title="Probability distribution of elevation angles when satellite is visible. Lower angles are more common due to geometric visibility constraints.">
+                    Elevation Angle Distribution</div>
             </div>
             <div class="chart-card">
                 <div class="chart-wrapper"><canvas id="chart-power-boxplot"></canvas></div>
-                <div class="chart-title">Received Power Statistics</div>
+                <div class="chart-title"
+                    title="Comparison of worst-case, expected, and best-case received power levels against the required threshold.">
+                    Received Power Statistics</div>
             </div>
             <div class="chart-card">
                 <div class="chart-wrapper"><canvas id="chart-range-elevation"></canvas></div>
-                <div class="chart-title">Slant Range vs Elevation</div>
+                <div class="chart-title"
+                    title="Relationship between satellite distance (slant range) and elevation angle. Lower elevations result in longer signal paths.">
+                    Slant Range vs Elevation</div>
             </div>
             <div class="chart-card">
                 <div class="chart-wrapper"><canvas id="chart-path-loss"></canvas></div>
-                <div class="chart-title">Path Loss Distribution</div>
+                <div class="chart-title"
+                    title="Distribution of total path loss including free space path loss and atmospheric attenuation.">
+                    Path Loss Distribution</div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-wrapper"><canvas id="chart-contact-duration"></canvas></div>
+                <div class="chart-title"
+                    title="Distribution of satellite pass durations. Shows how long the satellite remains visible above the minimum elevation angle.">
+                    Contact Duration Histogram</div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-wrapper"><canvas id="chart-gamma-pdf"></canvas></div>
+                <div class="chart-title"
+                    title="Probability density function of elevation angles. Gray bars show Monte Carlo data, red line shows fitted Gamma distribution.">
+                    Elevation Angle PDF</div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-wrapper"><canvas id="chart-cdf"></canvas></div>
+                <div class="chart-title"
+                    title="Cumulative distribution function comparing empirical data (blue) with Gamma fit (red). Shows probability of elevation being below a given angle.">
+                    Cumulative Distribution Function (CDF)</div>
             </div>
         </div>
     </div>
@@ -727,8 +869,28 @@
         });
 
         document.getElementById('range-elevation').addEventListener('input', (e) => {
-            document.getElementById('val-elevation').textContent = e.target.value;
+            const elevation = parseFloat(e.target.value);
+            document.getElementById('val-elevation').textContent = elevation;
+            updateBeamVisualization(elevation);
         });
+
+        // Update beam visualization based on min elevation angle
+        function updateBeamVisualization(elevationDeg) {
+            const beam = document.getElementById('elevation-beam');
+            const indicator = document.getElementById('elevation-indicator');
+
+            // Convert min elevation angle to visibility arc angle
+            // At 0° min elevation: full hemisphere visible = 180° arc
+            // At 90° min elevation: only zenith visible = 0° arc
+            // Arc angle = 180° - (2 × min_elevation)
+            const arcAngle = 180 - (2 * elevationDeg);
+
+            beam.style.setProperty('--arc-angle', arcAngle + 'deg');
+            indicator.textContent = 'Min Elevation: ' + elevationDeg + '°';
+        }
+
+        // Initialize beam visualization on page load
+        updateBeamVisualization(10);
 
         document.getElementById('range-frequency').addEventListener('input', (e) => {
             document.getElementById('val-frequency').textContent = parseFloat(e.target.value).toFixed(1);
@@ -751,7 +913,7 @@
         });
 
         // Create histogram chart
-        function createHistogramChart(canvasId, data, color, title) {
+        function createHistogramChart(canvasId, data, color, xLabel, yLabel) {
             const ctx = document.getElementById(canvasId).getContext('2d');
 
             // Destroy existing chart
@@ -776,15 +938,23 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { ticks: { color: '#ccc', maxTicksLimit: 8 }, grid: { color: '#444' } },
-                        y: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                        x: {
+                            ticks: { color: '#ccc', maxTicksLimit: 8 },
+                            grid: { color: '#444' },
+                            title: { display: true, text: xLabel, color: '#ccc', font: { size: 11 } }
+                        },
+                        y: {
+                            ticks: { color: '#ccc' },
+                            grid: { color: '#444' },
+                            title: { display: true, text: yLabel, color: '#ccc', font: { size: 11 } }
+                        }
                     }
                 }
             });
         }
 
         // Create scatter chart
-        function createScatterChart(canvasId, xData, yData, color) {
+        function createScatterChart(canvasId, xData, yData, color, xLabel, yLabel) {
             const ctx = document.getElementById(canvasId).getContext('2d');
 
             if (charts[canvasId]) charts[canvasId].destroy();
@@ -811,8 +981,16 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { ticks: { color: '#ccc' }, grid: { color: '#444' } },
-                        y: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                        x: {
+                            ticks: { color: '#ccc' },
+                            grid: { color: '#444' },
+                            title: { display: true, text: xLabel, color: '#ccc', font: { size: 11 } }
+                        },
+                        y: {
+                            ticks: { color: '#ccc' },
+                            grid: { color: '#444' },
+                            title: { display: true, text: yLabel, color: '#ccc', font: { size: 11 } }
+                        }
                     }
                 }
             });
@@ -842,6 +1020,187 @@
                     scales: {
                         x: { ticks: { color: '#ccc' }, grid: { color: '#444' }, title: { display: true, text: 'Power (dBW)', color: '#ccc' } },
                         y: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                    }
+                }
+            });
+        }
+
+        // Create contact duration histogram
+        function createContactDurationChart(canvasId, tsData) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            const hist = calculator.createHistogram(tsData.contactDurations, 25);
+            const labels = hist.centers.map(c => c.toFixed(0));
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: hist.counts,
+                        backgroundColor: '#00897b99',
+                        borderColor: '#00897b',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            ticks: { color: '#ccc', maxTicksLimit: 8 },
+                            grid: { color: '#444' },
+                            title: { display: true, text: 'Duration (seconds)', color: '#ccc', font: { size: 11 } }
+                        },
+                        y: {
+                            ticks: { color: '#ccc' },
+                            grid: { color: '#444' },
+                            title: { display: true, text: 'Frequency', color: '#ccc', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Create Gamma PDF chart with histogram and fit line
+        function createGammaPdfChart(canvasId, tsData) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            const hist = calculator.createHistogram(tsData.visibleTheta, 40);
+            const labels = hist.centers.map(c => c.toFixed(1));
+
+            // Create PDF line data points mapped to bar positions
+            const pdfLineData = [];
+            for (let i = 0; i < labels.length; i++) {
+                const x = parseFloat(labels[i]);
+                const pdf = calculator.gammaPDF(x, tsData.gammaParams.alpha, tsData.gammaParams.loc, tsData.gammaParams.beta);
+                pdfLineData.push(pdf);
+            }
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Monte Carlo Data',
+                            data: hist.density,
+                            backgroundColor: '#9e9e9e66',
+                            borderColor: '#9e9e9e',
+                            borderWidth: 1,
+                            order: 2
+                        },
+                        {
+                            type: 'line',
+                            label: 'Gamma Fit (a=' + tsData.gammaParams.alpha.toFixed(2) + ', b=' + tsData.gammaParams.beta.toFixed(2) + ')',
+                            data: pdfLineData,
+                            borderColor: '#f44336',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#ccc', font: { size: 10 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#ccc', maxTicksLimit: 8 },
+                            grid: { color: '#444' },
+                            title: { display: true, text: 'Elevation Angle (deg)', color: '#ccc', font: { size: 11 } }
+                        },
+                        y: {
+                            ticks: { color: '#ccc' },
+                            grid: { color: '#444' },
+                            title: { display: true, text: 'Probability', color: '#ccc', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Create CDF comparison chart
+        function createCdfChart(canvasId, tsData) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            // Sample data for performance (every nth point)
+            const step = Math.max(1, Math.floor(tsData.cdfData.x.length / 200));
+            const empiricalPoints = [];
+            const gammaPoints = [];
+
+            for (let i = 0; i < tsData.cdfData.x.length; i += step) {
+                empiricalPoints.push({ x: tsData.cdfData.x[i], y: tsData.cdfData.empiricalY[i] });
+                gammaPoints.push({ x: tsData.cdfData.x[i], y: tsData.cdfData.gammaY[i] });
+            }
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Empirical CDF',
+                            data: empiricalPoints,
+                            borderColor: '#2196f3',
+                            backgroundColor: '#2196f333',
+                            showLine: true,
+                            pointRadius: 0,
+                            borderWidth: 2,
+                            order: 1
+                        },
+                        {
+                            label: 'Gamma Fit CDF',
+                            data: gammaPoints,
+                            borderColor: '#f44336',
+                            backgroundColor: 'transparent',
+                            showLine: true,
+                            pointRadius: 0,
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#ccc', font: { size: 10 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#ccc' },
+                            grid: { color: '#444' },
+                            title: { display: true, text: 'Elevation (deg)', color: '#ccc', font: { size: 11 } }
+                        },
+                        y: {
+                            ticks: { color: '#ccc' },
+                            grid: { color: '#444' },
+                            title: { display: true, text: 'Probability', color: '#ccc', font: { size: 11 } },
+                            min: 0,
+                            max: 1
+                        }
                     }
                 }
             });
@@ -913,11 +1272,40 @@
                     setMetric('metric-std', data.std_dev_pr);
                     document.getElementById('metric-samples').textContent = data.samples_count.toLocaleString();
 
+                    // Update Heatmap
+                    const beam = document.getElementById('elevation-beam');
+                    const legend = document.getElementById('signal-legend');
+                    const legendMin = document.getElementById('legend-min');
+                    const legendMax = document.getElementById('legend-max');
+
+                    beam.classList.add('heatmap-active');
+                    legend.classList.add('visible');
+                    legendMin.textContent = data.worst_case_pr.toFixed(1) + ' dBW';
+                    legendMax.textContent = data.best_case_pr.toFixed(1) + ' dBW';
+
                     // Create charts
-                    createHistogramChart('chart-elevation-pdf', data.chartData.thetaSamples, '#00bcd4');
+                    createHistogramChart('chart-elevation-pdf', data.chartData.thetaSamples, '#00bcd4', 'Elevation Angle (deg)', 'Frequency');
                     createPowerChart('chart-power-boxplot', data);
-                    createScatterChart('chart-range-elevation', data.chartData.thetaSamples, data.chartData.slantRangeSamples, '#ff9800');
-                    createHistogramChart('chart-path-loss', data.chartData.fsplSamples, '#e91e63');
+                    createScatterChart('chart-range-elevation', data.chartData.thetaSamples, data.chartData.slantRangeSamples, '#ff9800', 'Elevation Angle (deg)', 'Slant Range (km)');
+                    createHistogramChart('chart-path-loss', data.chartData.fsplSamples, '#e91e63', 'Total Attenuation (dB)', 'Frequency');
+
+                    // Run time-series simulation (60 days @ 10s intervals)
+                    const tsData = calculator.runTimeSeriesSimulation(params, 60, 10);
+
+                    // Update simulation info
+                    document.getElementById('simulation-info').textContent =
+                        `${tsData.days} days @ ${tsData.stepS}s intervals`;
+
+                    // Update time-series metrics
+                    setMetric('metric-contact-duration', tsData.meanContactDuration);
+                    document.getElementById('metric-num-contacts').textContent = tsData.numContacts.toLocaleString();
+
+                    // Create time-series charts
+                    if (tsData.contactDurations.length > 0) {
+                        createContactDurationChart('chart-contact-duration', tsData);
+                        createGammaPdfChart('chart-gamma-pdf', tsData);
+                        createCdfChart('chart-cdf', tsData);
+                    }
 
                     // Update timestamp
                     document.getElementById('results-timestamp').textContent =
