@@ -12,12 +12,12 @@ app.config['SECRET_KEY'] = 'leo-orbit-viz-secret'
 
 # Routes
 @app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/landing')
 def landing():
     return render_template('landing.html')
+
+@app.route('/analyzer')
+def index():
+    return render_template('index.html')
 
 @app.route('/terminal')
 def terminal():
