@@ -49,7 +49,7 @@ class ConstellationVisualizer {
         this.earthImage = null;
         this.imageLoaded = false;
         this.timeOffset = 0;
-        this.simTime = Date.now(); // Initialize Simulated Time
+        this.simTime = Date.now();
         this.lastFrameTime = 0;
         this.isPlaying = true;
         this.speed = 1.0;
@@ -58,7 +58,7 @@ class ConstellationVisualizer {
 
         // Display options
         this.showOrbits = true;
-        this.showBeams = true; // 2D only mainly, but maybe 3D later?
+        this.showBeams = true;
         this.showGrid = true;
 
         // UI Elements
@@ -191,29 +191,18 @@ class ConstellationVisualizer {
         this.scene.add(ambientLight);
 
         // Sun Logic
-        // Original direction was (50, 20, 50), inverted is (-50, 20, -50)
-        // Note: The shader uses sunDirection for N dot L.
-        // If shader has sunDir (-50, 20, -50), then light comes FROM there.
-        // So we place the sun mesh there.
         const sunDir = new THREE.Vector3(-50, 20, -50).normalize();
 
         // Point Light at Sun Position
         const pointLight = new THREE.PointLight(0xffffff, 1.5);
-        pointLight.position.copy(sunDir).multiplyScalar(100); // Light source closer for proper falloff calculation?
-        // Actually directional light is better for sun, but point light works if far.
-        // Let's keep point light but move it to sun position.
+        pointLight.position.copy(sunDir).multiplyScalar(100);
         pointLight.position.copy(sunDir).multiplyScalar(800);
         this.scene.add(pointLight);
-
-        // Sun Mesh - Bright white sun with glow
         const sunGeo = new THREE.SphereGeometry(20, 32, 32);
         const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const sunMesh = new THREE.Mesh(sunGeo, sunMat);
         sunMesh.position.copy(pointLight.position);
         this.scene.add(sunMesh);
-
-        // Sun Glow Effect - Multiple layers for realistic space sun appearance
-        // Inner glow (intense white-yellow)
         const glowGeo1 = new THREE.SphereGeometry(25, 32, 32);
         const glowMat1 = new THREE.MeshBasicMaterial({
             color: 0xffffff,
@@ -363,31 +352,8 @@ class ConstellationVisualizer {
         this.update3DOrbits();
 
         // --- Beams (InstancedMesh) ---
-        // Max capacity 5000 just in case
         const maxSats = 5000;
-        const alignGeometry = new THREE.ConeGeometry(1, 1, 32, 1, true); // Open ended?
-        // Cone is Y-up centered at 0. Tip at 0.5, Base at -0.5.
-        // We want Tip at 0 (Sat Position) and Base at +Z distance (Towards Earth if we lookAt Earth).
-        // Wait, LookAt makes +Z point to Target (Earth).
-        // So we want Cone to extend along +Z axis from 0 to Distance.
-        // Standard Cone: +Y axis.
-        // Rotate X 90: +Y -> +Z.
-        // Now Tip is at 0.5Z, Base at -0.5Z.
-        // Translate Z -0.5: Tip at 0, Base at -1.
-        // This extends along -Z.
-        // We want it to extend along +Z?
-        // If Sat is at P, Earth at O. O-P vector is direction.
-        // We put Mesh at P. lookAt(O).
-        // The object's +Z axis now points to O.
-        // So we want geometry to extend along +Z from 0.
-        // Rotate X 90 -> +Z axis. Tip 0.5, Base -0.5.
-        // Translate Z +0.5 -> Tip at 1, Base at 0.
-        // So Base is at P? No we want Tip at P.
-        // Okay, Tip at 0.
-        // Rotate X -90 -> +Y becomes -Z.
-        // Tip at -0.5Z. Base at +0.5Z.
-        // Translate Z +0.5 -> Tip at 0. Base at +1Z.
-        // Correct.
+        const alignGeometry = new THREE.ConeGeometry(1, 1, 32, 1, true);
         alignGeometry.rotateX(-Math.PI / 2);
         alignGeometry.translate(0, 0, 0.5);
 
@@ -578,9 +544,6 @@ class ConstellationVisualizer {
                 this.simTime = Date.now();
                 const date = new Date(this.simTime);
                 this.utcTime.textContent = date.toISOString().substr(11, 8);
-                // We don't reset timeOffset (satellite phase) to avoid jumping, 
-                // unless we want to synchronize satellite position to exact time too.
-                // For now, we only sync Earth Rotation and Clock.
             });
         }
 
@@ -637,7 +600,7 @@ class ConstellationVisualizer {
             this.container3D.style.display = 'none';
             btn2D.classList.add('active');
             btn3D.classList.remove('active');
-            this.handleResize3D(); // Hack to ensure 3D is ready when switched back? No, when switching TO 3D.
+            this.handleResize3D();
         } else {
             this.canvas2D.style.display = 'none';
             this.container3D.style.display = 'block';
@@ -751,33 +714,15 @@ class ConstellationVisualizer {
         const date = new Date(this.simTime);
         const utcDecimal = date.getUTCHours() + date.getUTCMinutes() / 60;
 
-        // Sun Longitude: 12:00 UTC = 0 deg. 15 deg/hr.
-        // Moves East to West (-15 deg/hr).
         let sunLon = (12 - utcDecimal) * 15;
-
-        // Normalize to -180 to 180
         sunLon = ((sunLon + 180) % 360 + 360) % 360 - 180;
-
-        // Night is opposite to Sun
         let nightLon = sunLon + 180;
         if (nightLon > 180) nightLon -= 360;
-
-        // Night covers 180 degrees (from nightLon - 90 to nightLon + 90)
         let startLon = nightLon - 90;
         let endLon = nightLon + 90;
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Semi-transparent shadow
-
-        // Helper to Convert Lon to X
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         const lonToX = (lon) => ((lon + 180) / 360) * this.width;
-
-        // Handle Wrapping
-        // Case 1: Simple block (e.g. -45 to 45)
-        // Case 2: Wrapping over 180/-180 (e.g. 135 to -135) -> 135 to 180 AND -180 to -135
-
         if (startLon < -180) {
-            // Wraps left side
-            // Split: (startLon+360) to 180  AND -180 to endLon
             const x1 = lonToX(startLon + 360);
             const w1 = lonToX(180) - x1;
             ctx.fillRect(x1, 0, w1, this.height);
@@ -787,8 +732,6 @@ class ConstellationVisualizer {
             ctx.fillRect(x2, 0, w2, this.height);
 
         } else if (endLon > 180) {
-            // Wraps right side
-            // Split: startLon to 180 AND -180 to (endLon - 360)
             const x1 = lonToX(startLon);
             const w1 = lonToX(180) - x1;
             ctx.fillRect(x1, 0, w1, this.height);
@@ -815,13 +758,6 @@ class ConstellationVisualizer {
         if (this.beamMesh.count !== totalSats) {
             this.beamMesh.count = totalSats;
         }
-
-        // Beam spread: We can approximate radius from angle
-        // dist * tan(angle/2).
-        // Angle comes from params.beam_size (which is arbitrary beam size factor 0-1?)
-        // In 2D: angularRadius = params.beam_size * 0.14
-        // Let's use similar scale. 
-        // angle ~ beam_size * 0.3 radians?
         const angle = this.params.beam_size * 0.5; // Tuning
 
         for (let i = 0; i < totalSats; i++) {
@@ -830,17 +766,10 @@ class ConstellationVisualizer {
 
             dummy.position.copy(vec3);
             dummy.lookAt(earthCenter);
-
             // Distance to surface
-            // Sat is at orbitRadius. Surface at earthRadius.
-            // Distance along lookAt vector is orbitRadius - earthRadius.
             const dist = this.orbitRadius - this.earthRadius;
-
             // Cone width radius
             const radius = dist * Math.tan(angle);
-
-            // Initial Geo: Length 1, Radius 1.
-            // Scale(x, y, z): x,y are radius, z is length.
             dummy.scale.set(radius, radius, dist);
 
             dummy.updateMatrix();
@@ -998,13 +927,8 @@ class ConstellationVisualizer {
         this.lastFrameTime = timestamp;
 
         if (this.isPlaying) {
-            // Update satellite animation phase
-            // Real-time LEO period is approx 96 minutes = 5760 seconds
-            // 2*PI radians in 5760 seconds
             const orbitPeriod = 5760;
             const radPerSec = (2 * Math.PI) / orbitPeriod;
-
-            // delta is in ms, so delta/1000 is seconds
             this.timeOffset += (delta / 1000) * radPerSec * this.speed;
 
             // Update Simulated Time
@@ -1014,17 +938,8 @@ class ConstellationVisualizer {
 
             // Rotate Earth (3D only)
             if (this.mode !== '2D' && this.earthMesh) {
-                // Earth rotates 360 degrees in 24 hours (86400 seconds)
-                // Greenwich Mean Time: 12:00 UTC should face the Sun? 
-                // This depends on Sun position.
-                // Our sunDirection in Shader is (50, 20, 50). 
-                // Simple approximate rotation:
                 const secondsInDay = date.getUTCHours() * 3600 + date.getUTCMinutes() * 60 + date.getUTCSeconds();
                 const rotAngle = (secondsInDay / 86400) * 2 * Math.PI;
-
-                // Add an offset if needed to align textures. 
-                // Texture usually centered on Greenwhich (0 deg).
-                // If Sun is fixed, we rotate Earth.
                 this.earthMesh.rotation.y = rotAngle - Math.PI / 2; // -90 deg offset tuning
 
                 if (this.densityMesh3D) {
@@ -1132,9 +1047,6 @@ class ConstellationVisualizer {
                 }
                 this.satPoints.geometry.attributes.position.needsUpdate = true;
             }
-
-            // Rotate Earth slightly? No, Earth is fixed, Satellites move.
-            // But we can add cloud rotation purely for effect if we had a cloud layer.
 
             this.controls.update();
 

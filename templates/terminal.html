@@ -7,11 +7,14 @@
     <title>Terminal - LEO Analyzer</title>
     <meta name="description" content="Terminal interface for LEO satellite link budget analysis">
     <link rel="stylesheet" href="/static/css/orbit.css">
+    <link rel="icon" href="/static/icon/site-icon.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@100..900&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
     <style>
         /* Terminal Page Specific Styles */
         .scene {
@@ -2303,6 +2306,49 @@
                 this.addLabel('E', 1.2, 0, 0);
                 this.addLabel('W', -1.2, 0, 0);
                 this.addLabel('Zenith', 0, 0, 1.1, '#00ffff');
+
+                // Load Starlink Terminal Model
+                this.loadTerminalModel();
+            }
+
+            loadTerminalModel() {
+                const loader = new THREE.OBJLoader();
+                const textureLoader = new THREE.TextureLoader();
+
+                // Load Texture
+                const texture = textureLoader.load('/static/textures/starlink-satellite-dish/textures/starlink_dish_lo_Material_BaseColor.png');
+
+                loader.load(
+                    '/static/textures/starlink-satellite-dish/source/starlink.obj',
+                    (object) => {
+                        object.traverse((child) => {
+                            if (child.isMesh) {
+                                child.material.map = texture;
+                                child.material.transparent = false;
+                                child.material.side = THREE.DoubleSide; // Ensure visibility
+                            }
+                        });
+
+                        // Sizing and Positioning
+                        // "Small, just sitting there"
+                        const scale = 0.00025; // Reduced to 0.5% of 0.05
+                        object.scale.set(scale, scale, scale);
+
+                        // Z-up adjustment: Rotate 90deg on X to stand up
+                        object.rotation.x = Math.PI / 2;
+
+                        object.position.set(0, 0, 0);
+
+                        this.scene.add(object);
+                        console.log('Starlink Terminal loaded');
+                    },
+                    (xhr) => {
+                        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                    },
+                    (error) => {
+                        console.error('Error loading Starlink terminal:', error);
+                    }
+                );
             }
 
             addLabel(text, x, y, z, colorStr = '#ffffff') {
