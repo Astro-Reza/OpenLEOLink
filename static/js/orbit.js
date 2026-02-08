@@ -61,6 +61,20 @@ class ConstellationVisualizer {
         this.showBeams = true;
         this.showGrid = true;
 
+        // 2D Map Zoom/Pan state
+        this.scale = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this.isPanning = false;
+        this.lastPanX = 0;
+        this.lastPanY = 0;
+
+        // Map dimensions (for 2:1 aspect ratio)
+        this.mapWidth = 0;
+        this.mapHeight = 0;
+        this.mapOffsetX = 0;
+        this.mapOffsetY = 0;
+
         // UI Elements
         this.satCount = document.getElementById('sat-count');
         this.planeCount = document.getElementById('plane-count');
@@ -85,6 +99,60 @@ class ConstellationVisualizer {
             this.handleResize3D();
             this.staticLayerDirty = true;
         });
+
+        // Zoom with mouse wheel (2D only)
+        this.canvas2D.addEventListener('wheel', (e) => {
+            if (this.mode !== '2D') return;
+            e.preventDefault();
+
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.max(1, Math.min(10, this.scale * zoomFactor));
+
+            // Zoom toward mouse position
+            const rect = this.canvas2D.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Adjust pan to zoom toward mouse
+            const prevScale = this.scale;
+            this.scale = newScale;
+
+            if (newScale !== prevScale) {
+                const scaleChange = newScale / prevScale;
+                this.panX = mouseX - (mouseX - this.panX) * scaleChange;
+                this.panY = mouseY - (mouseY - this.panY) * scaleChange;
+            }
+
+            this.staticLayerDirty = true;
+        }, { passive: false });
+
+        // Pan with mouse drag (2D only)
+        this.canvas2D.addEventListener('mousedown', (e) => {
+            if (this.mode !== '2D') return;
+            this.isPanning = true;
+            this.lastPanX = e.clientX;
+            this.lastPanY = e.clientY;
+            this.canvas2D.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!this.isPanning || this.mode !== '2D') return;
+            const dx = e.clientX - this.lastPanX;
+            const dy = e.clientY - this.lastPanY;
+            this.panX += dx;
+            this.panY += dy;
+            this.lastPanX = e.clientX;
+            this.lastPanY = e.clientY;
+            this.staticLayerDirty = true;
+        });
+
+        window.addEventListener('mouseup', () => {
+            this.isPanning = false;
+            this.canvas2D.style.cursor = 'grab';
+        });
+
+        // Set default cursor for 2D canvas
+        this.canvas2D.style.cursor = 'grab';
     }
 
     // --- Loading Screen Logic ---
@@ -315,30 +383,27 @@ class ConstellationVisualizer {
         const positions = new Float32Array(this.params.satellites * 3);
         satGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-        // Create a circular sprite for sats using canvas
-        const spriteSize = 64;
+        // Create a simple solid dot sprite (no glow)
+        const spriteSize = 16;
         const spriteCanvas = document.createElement('canvas');
         spriteCanvas.width = spriteSize;
         spriteCanvas.height = spriteSize;
         const sCtx = spriteCanvas.getContext('2d');
         const center = spriteSize / 2;
 
-        // Glow
-        const grad = sCtx.createRadialGradient(center, center, 0, center, center, center);
-        grad.addColorStop(0, 'rgba(249, 115, 22, 1)'); // Orange
-        grad.addColorStop(0.4, 'rgba(249, 115, 22, 0.5)');
-        grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
-        sCtx.fillStyle = grad;
-        sCtx.fillRect(0, 0, spriteSize, spriteSize);
+        // Simple solid white dot
+        sCtx.fillStyle = '#ffffff';
+        sCtx.beginPath();
+        sCtx.arc(center, center, 4, 0, Math.PI * 2);
+        sCtx.fill();
 
         const spriteTexture = new THREE.CanvasTexture(spriteCanvas);
 
         const satMat = new THREE.PointsMaterial({
             color: 0xffffff,
-            size: 0.8,
+            size: 0.15,
             map: spriteTexture,
             transparent: true,
-            blending: THREE.AdditiveBlending,
             depthWrite: false
         });
 
@@ -396,6 +461,24 @@ class ConstellationVisualizer {
         this.canvas2D.style.width = this.width + 'px';
         this.canvas2D.style.height = this.height + 'px';
 
+        // Calculate map dimensions maintaining 2:1 aspect ratio
+        const targetAspect = 2.0; // width / height = 2:1
+        const containerAspect = this.width / this.height;
+
+        if (containerAspect > targetAspect) {
+            // Container is wider than 2:1, fit to height
+            this.mapHeight = this.height;
+            this.mapWidth = this.height * targetAspect;
+        } else {
+            // Container is taller than 2:1, fit to width
+            this.mapWidth = this.width;
+            this.mapHeight = this.width / targetAspect;
+        }
+
+        // Center the map
+        this.mapOffsetX = (this.width - this.mapWidth) / 2;
+        this.mapOffsetY = (this.height - this.mapHeight) / 2;
+
         // Static Layer Canvas
         this.staticCanvas.width = this.canvas2D.width;
         this.staticCanvas.height = this.canvas2D.height;
@@ -406,34 +489,18 @@ class ConstellationVisualizer {
     }
 
     preRenderAssets() {
-        // Pre-render glowing satellite dot to an off-screen canvas
-        const size = 24;
+        // Pre-render simple solid satellite dot (no glow)
+        const size = 6;
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
         const center = size / 2;
 
-        // Outer glow
-        const gradient = ctx.createRadialGradient(center, center, 0, center, center, 12);
-        gradient.addColorStop(0, 'rgba(249, 115, 22, 0.8)');
-        gradient.addColorStop(0.5, 'rgba(249, 115, 22, 0.3)');
-        gradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
-        ctx.fillStyle = gradient;
+        // Simple solid dot
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(center, center, 12, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Satellite dot
-        ctx.fillStyle = '#f97316';
-        ctx.beginPath();
-        ctx.arc(center, center, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Bright center
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(center, center, 1.5, 0, Math.PI * 2);
+        ctx.arc(center, center, 2, 0, Math.PI * 2);
         ctx.fill();
 
         this.satSprite = canvas;
@@ -678,8 +745,9 @@ class ConstellationVisualizer {
     }
 
     latLonToXY(lat, lon) {
-        const x = ((lon + 180) / 360) * this.width;
-        const y = ((90 - lat) / 180) * this.height;
+        // Map lat/lon to the 2:1 aspect ratio map area
+        const x = this.mapOffsetX + ((lon + 180) / 360) * this.mapWidth;
+        const y = this.mapOffsetY + ((90 - lat) / 180) * this.mapHeight;
         return { x, y };
     }
 
@@ -721,29 +789,29 @@ class ConstellationVisualizer {
         let startLon = nightLon - 90;
         let endLon = nightLon + 90;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        const lonToX = (lon) => ((lon + 180) / 360) * this.width;
+        const lonToX = (lon) => this.mapOffsetX + ((lon + 180) / 360) * this.mapWidth;
         if (startLon < -180) {
             const x1 = lonToX(startLon + 360);
             const w1 = lonToX(180) - x1;
-            ctx.fillRect(x1, 0, w1, this.height);
+            ctx.fillRect(x1, this.mapOffsetY, w1, this.mapHeight);
 
             const x2 = lonToX(-180);
             const w2 = lonToX(endLon) - x2;
-            ctx.fillRect(x2, 0, w2, this.height);
+            ctx.fillRect(x2, this.mapOffsetY, w2, this.mapHeight);
 
         } else if (endLon > 180) {
             const x1 = lonToX(startLon);
             const w1 = lonToX(180) - x1;
-            ctx.fillRect(x1, 0, w1, this.height);
+            ctx.fillRect(x1, this.mapOffsetY, w1, this.mapHeight);
 
             const x2 = lonToX(-180);
             const w2 = lonToX(endLon - 360) - x2;
-            ctx.fillRect(x2, 0, w2, this.height);
+            ctx.fillRect(x2, this.mapOffsetY, w2, this.mapHeight);
         } else {
             // No wrap
             const x = lonToX(startLon);
             const w = lonToX(endLon) - x;
-            ctx.fillRect(x, 0, w, this.height);
+            ctx.fillRect(x, this.mapOffsetY, w, this.mapHeight);
         }
     }
 
@@ -830,16 +898,16 @@ class ConstellationVisualizer {
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // 1. Draw Standard Earth
+        // 1. Draw Standard Earth (in map area with proper aspect ratio)
         if (this.imageLoaded && this.earthImage) {
             ctx.globalAlpha = 1.0;
-            ctx.drawImage(this.earthImage, 0, 0, this.width, this.height);
+            ctx.drawImage(this.earthImage, this.mapOffsetX, this.mapOffsetY, this.mapWidth, this.mapHeight);
         }
 
-        // 2. Draw Population Overlay
+        // 2. Draw Population Overlay (in map area)
         if (this.showPopulation && this.popImage && this.popImage.complete) {
             ctx.globalAlpha = this.popOpacity;
-            ctx.drawImage(this.popImage, 0, 0, this.width, this.height);
+            ctx.drawImage(this.popImage, this.mapOffsetX, this.mapOffsetY, this.mapWidth, this.mapHeight);
             ctx.globalAlpha = 1.0;
         }
 
@@ -857,23 +925,23 @@ class ConstellationVisualizer {
         ctx.lineWidth = 0.5;
         ctx.beginPath();
         for (let i = -180; i <= 180; i += 30) {
-            const x = ((i + 180) / 360) * this.width;
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, this.height);
+            const x = this.mapOffsetX + ((i + 180) / 360) * this.mapWidth;
+            ctx.moveTo(x, this.mapOffsetY);
+            ctx.lineTo(x, this.mapOffsetY + this.mapHeight);
         }
         for (let i = -90; i <= 90; i += 30) {
-            const y = ((90 - i) / 180) * this.height;
-            ctx.moveTo(0, y);
-            ctx.lineTo(this.width, y);
+            const y = this.mapOffsetY + ((90 - i) / 180) * this.mapHeight;
+            ctx.moveTo(this.mapOffsetX, y);
+            ctx.lineTo(this.mapOffsetX + this.mapWidth, y);
         }
         ctx.stroke();
 
         ctx.strokeStyle = 'rgba(255, 200, 100, 0.3)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        const eqY = this.height / 2;
-        ctx.moveTo(0, eqY);
-        ctx.lineTo(this.width, eqY);
+        const eqY = this.mapOffsetY + this.mapHeight / 2;
+        ctx.moveTo(this.mapOffsetX, eqY);
+        ctx.lineTo(this.mapOffsetX + this.mapWidth, eqY);
         ctx.stroke();
     }
 
@@ -954,6 +1022,16 @@ class ConstellationVisualizer {
 
         // --- RENDER 2D ---
         if (this.mode === '2D') {
+            // Clear canvas
+            this.ctx.save();
+            this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+            this.ctx.fillStyle = '#111';
+            this.ctx.fillRect(0, 0, this.width, this.height);
+
+            // Apply zoom and pan transforms
+            this.ctx.translate(this.panX, this.panY);
+            this.ctx.scale(this.scale, this.scale);
+
             if (this.staticLayerDirty) {
                 this.renderStaticLayer();
             }
@@ -1022,6 +1100,9 @@ class ConstellationVisualizer {
                     this.ctx.drawImage(this.satSprite, xy.x - offset, xy.y - offset);
                 }
             }
+
+            // Restore canvas state after zoom/pan transforms
+            this.ctx.restore();
         }
         // --- RENDER 3D ---
         else {
