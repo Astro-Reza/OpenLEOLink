@@ -1,6 +1,11 @@
-# OpenLEOLink (LEO Analyzer)
+# Palatine Space
 
-A comprehensive web-based platform for Low Earth Orbit (LEO) satellite constellation visualization and link budget analysis.
+<div align="center">
+  <img width="200px" src="static/logo/palatine-white.svg"/>
+</div>
+
+
+A comprehensive web-based platform for Low Earth Orbit (LEO) satellite constellation visualization and link budget analysis. A 
 
 ## Features
 
@@ -25,10 +30,6 @@ A comprehensive web-based platform for Low Earth Orbit (LEO) satellite constella
 *   **Gamma Distribution Fitting**: Automatic fitting of elevation probability density functions (PDF).
 *   **CDF Verification**: Comparison between empirical mission data and theoretical Gamma-fit CDFs.
 
-### 5. Premium Palatine UX
-*   **Modern Aesthetics**: HSL-tailored colors, dark-mode glassmorphism, and slick gradient overlays.
-*   **System Initialization**: Detailed loading sequences with glitch-style animations.
-*   **Responsive Control Panel**: Collapsible dropdown segments for Space, Ground, and Hardware specs.
 
 ## Tech Stack
 *   **Backend**: Flask (Python) - optimized for Vercel Serverless deployment.

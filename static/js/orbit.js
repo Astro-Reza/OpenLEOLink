@@ -27,12 +27,12 @@ class ConstellationVisualizer {
         this.renderer = null;
         this.controls = null;
         this.earthMesh = null;
-        this.densityMesh3D = null; // Population Density Sphere
-        this.beamMesh = null; // THREE.InstancedMesh for beams
-        this.satPoints = null; // THREE.Points
-        this.orbitLines = [];  // Array of THREE.Line
+        this.densityMesh3D = null;
+        this.beamMesh = null;
+        this.satPoints = null;
+        this.orbitLines = [];
         this.earthRadius = 5;
-        this.orbitRadius = 5.5; // Approx altitude (Lowered for better visual)
+        this.orbitRadius = 5.5;
 
         // Use a group for orbits to easily clear them
         this.orbitGroup = null;
@@ -87,9 +87,9 @@ class ConstellationVisualizer {
         this.setupCanvas();
         this.preRenderAssets();
         this.loadEarthImage();
-        this.initializeClientMode(); // No server needed - runs fully client-side
+        this.initializeClientMode();
         this.setupControls();
-        this.init3D(); // Initialize 3D scene (hidden initially)
+        this.init3D();
 
         // Start animation loop
         requestAnimationFrame((t) => this.animate(t));

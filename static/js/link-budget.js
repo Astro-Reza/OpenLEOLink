@@ -6,14 +6,11 @@
 
 class LinkBudgetCalculator {
     constructor() {
-        this.Re = 6371.0; // Earth Radius (km)
-        this.GM = 3.986e5; // Earth gravitational parameter (km^3/s^2)
-        this.nSamples = 30000; // Monte Carlo samples
+        this.Re = 6371.0;
+        this.GM = 3.986e5;
+        this.nSamples = 30000;
     }
 
-    /**
-     * Generate random uniform samples
-     */
     randomUniform(min, max, n) {
         const samples = new Float64Array(n);
         for (let i = 0; i < n; i++) {
@@ -22,9 +19,6 @@ class LinkBudgetCalculator {
         return samples;
     }
 
-    /**
-     * Calculate link budget with Monte Carlo simulation
-     */
     calculate(params) {
         const { altitude, inclination, latitude, minElevation, frequency, eirp, gr, requiredPower } = params;
 
