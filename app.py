@@ -23,6 +23,10 @@ def index():
 def terminal():
     return render_template('terminal.html')
 
+@app.route('/isl-simulations')
+def isl_simulations():
+    return render_template('isl_simulations.html')
+
 @app.route('/citations')
 def citations():
     return render_template('citations.html')

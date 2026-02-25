@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISL Simulations - LEO Analyzer</title>
+    <meta name="description" content="Inter-Satellite Link simulations for LEO constellation visualization">
+    <link rel="stylesheet" href="/static/css/orbit.css">
+    <link rel="icon" href="/static/icon/site-icon.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@100..900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        /* === Multi-Constellation Dashboard Styles === */
+        .isl-dashboard {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            font-family: "Geologica", sans-serif;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+
+        .db-container {
+            display: grid;
+            grid-template-columns: 300px 300px 1fr;
+            gap: 40px;
+            max-width: 1600px;
+            margin: 0 auto;
+            align-items: start;
+        }
+
+        .db-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .db-header-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-bottom: 5px;
+        }
+
+        .db-h2 {
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            margin: 0;
+            padding: 0;
+            color: #ffffff;
+        }
+
+        .db-plus-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #444;
+            color: #ffffff;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 300;
+            transition: background 0.2s;
+        }
+
+        .db-plus-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #2ecc71;
+        }
+
+        .db-card {
+            background-color: #2b2b2b;
+            border-radius: 6px;
+            padding: 15px;
+            border: 1px solid #333;
+        }
+
+        .db-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .db-dots-menu {
+            color: #a0a0a0;
+            cursor: pointer;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+
+        .db-data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .db-label {
+            color: #a0a0a0;
+            font-weight: 300;
+        }
+
+        .db-value {
+            color: #ffffff;
+            text-align: right;
+            font-feature-settings: "tnum";
+        }
+
+        .db-sub-section {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+
+        .db-sub-section-title {
+            color: #a0a0a0;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .db-sim-data-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .db-sim-header-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .db-sim-sub-header {
+            font-size: 16px;
+            color: #ffffff;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #444;
+        }
+
+        .db-metric-card {
+            background-color: #2b2b2b;
+            border-radius: 6px;
+            padding: 15px;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 140px;
+        }
+
+        .db-metric-big {
+            font-size: 48px;
+            font-weight: 500;
+            color: #2ecc71;
+            line-height: 1;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            font-feature-settings: "tnum";
+            transition: color 0.3s;
+        }
+
+        .db-metric-sub {
+            color: #a0a0a0;
+            font-size: 13px;
+            margin-bottom: auto;
+        }
+
+        .db-metric-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 15px;
+            font-size: 13px;
+        }
+
+        .db-metric-val {
+            color: #ffffff;
+            font-feature-settings: "tnum";
+        }
+
+        .db-sim-section-title {
+            grid-column: 1 / -1;
+            margin-bottom: 20px;
+            border: none;
+            border-left: 2px solid white;
+            padding-left: 10px;
+            line-height: 1;
+            padding-bottom: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        /* === Expandable Settings Panel === */
+        .db-settings-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, padding 0.35s ease, margin 0.35s ease;
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        .db-card.expanded .db-settings-panel {
+            max-height: 600px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #444;
+        }
+
+        .db-dots-menu {
+            color: #a0a0a0;
+            cursor: pointer;
+            letter-spacing: 2px;
+            font-weight: bold;
+            user-select: none;
+            transition: color 0.2s;
+        }
+
+        .db-card.expanded .db-dots-menu {
+            color: #2ecc71;
+        }
+
+        /* Dashboard Slider Rows */
+        .db-slider-row {
+            margin-bottom: 12px;
+        }
+
+        .db-slider-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #a0a0a0;
+        }
+
+        .db-slider-label-row .db-slider-val {
+            color: #ffffff;
+            font-feature-settings: "tnum";
+        }
+
+        .db-slider-row input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: #444;
+            outline: none;
+        }
+
+        .db-slider-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -4px;
+        }
+
+        /* Toggle Switch */
+        .db-toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+
+        .db-toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .db-toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .db-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #444;
+            border-radius: 20px;
+            transition: background-color 0.3s;
+        }
+
+        .db-toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #ffffff;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .db-toggle-switch input:checked+.db-toggle-slider {
+            background-color: #2ecc71;
+        }
+
+        .db-toggle-switch input:checked+.db-toggle-slider::before {
+            transform: translateX(16px);
+        }
+
+        /* Delete Button */
+        .db-delete-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            transition: color 0.2s, transform 0.2s;
+            font-weight: 300;
+        }
+
+        .db-delete-btn:hover {
+            color: #ff4757;
+            transform: scale(1.2);
+        }
+
+        .db-card-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Editable constellation name */
+        .db-card-name {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid transparent;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 2px 4px;
+            margin: 0;
+            outline: none;
+            min-width: 80px;
+            max-width: 180px;
+            transition: border-color 0.2s;
+        }
+
+        .db-card-name:hover {
+            border-bottom-color: #555;
+        }
+
+        .db-card-name:focus {
+            border-bottom-color: #2ecc71;
+        }
+
+        /* Card fade-out animation */
+        .db-card.removing {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Global Header -->
+    <header class="global-header">
+        <div class="header-left">
+            <a href="/">
+                <img src="/static/logo/palatine-black.svg" alt="Palatine Logo" class="brand-logo">
+            </a>
+            <span class="brand-divider"></span>
+            <a href="/analyzer" class="nav-link">LEO ANALYZER</a>
+            <a href="/terminal" class="nav-link">TERMINAL</a>
+            <a href="/isl-simulations" class="nav-link active">ISL SIMULATIONS</a>
+            <a href="/citations" class="nav-link">CITATIONS</a>
+        </div>
+        <div class="header-right">
+            <img src="/static/icon/profile.svg" alt="Profile" class="profile-icon">
+        </div>
+    </header>
+
+    <div class="app-container" id="app-container">
+        <!-- Left Panel: Visualization -->
+        <div class="viz-panel">
+            <div class="viz-header">
+                <div class="view-toggle">
+                    <button id="btn-2d" class="toggle-btn active">2D</button>
+                    <button id="btn-3d" class="toggle-btn">3D</button>
+                </div>
+                <div class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span id="connection-status">Connecting...</span>
+                </div>
+            </div>
+            <div class="canvas-container">
+                <!-- Loading Screen -->
+                <div class="loader-container" id="loader-screen">
+                    <div class="loader-header">
+                        <span class="loader-header-text">System Loading...</span>
+                        <svg class="header-star" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" fill="#171717" />
+                        </svg>
+                    </div>
+                    <div class="loader-body" id="loaderBody">
+                        <div class="body-padding">
+                            <div class="info-row">
+                                <div class="percentage-display" id="percentText">0%</div>
+                                <div class="copyright-tag">Copyright @ 2026 Palatine Technologies</div>
+                            </div>
+                            <div class="progress-grid" id="progressGrid"></div>
+                            <div class="random-bars-container">
+                                <div class="random-bar bar-1"></div>
+                                <div class="random-bar bar-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <canvas id="orbit-canvas"></canvas>
+                <div id="orbit-container-3d"></div>
+                <div class="satellite-info" id="satellite-info">
+                    <div class="sat-name">Constellation Stats</div>
+                    <div class="sat-coords">
+                        <span>Satellites: <span id="sat-count">--</span></span>
+                        <span>Planes: <span id="plane-count">--</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="viz-legend">
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #64FF64;"></span>
+                    <span>Ascending</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #FFA03C;"></span>
+                    <span>Descending</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line" style="background: #FF50FF;"></span>
+                    <span>Cross-Plane ISL</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line" style="background: #B4FF50;"></span>
+                    <span>Intra-Plane ISL</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line" style="background: #50DCFF;"></span>
+                    <span>Inter-Plane ISL</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line" style="background: #FFD740;"></span>
+                    <span>Right-Left ISL</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Controls -->
+        <div class="control-panel">
+            <div class="panel-header">
+                <h2>ISL Controls</h2>
+            </div>
+
+
+            <!-- ISL Links Dropdown -->
+            <div class="dropdown-container is-open" id="dropdown-isl">
+                <div class="dropdown-header" onclick="toggleDropdown('dropdown-isl')">
+                    <span class="header-title">ISL Links</span>
+                    <svg class="arrow-icon" viewBox="0 0 24 24">
+                        <path d="M7 17 L17 7" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M7 7 L17 7 L17 17" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="dropdown-content">
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-cross-isl" checked>
+                        <span class="checkmark"></span>
+                        <span>Cross-Plane ISL (Asc↔Desc)</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-intra-isl">
+                        <span class="checkmark"></span>
+                        <span>Intra-Plane ISL (Along-Track)</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-inter-isl">
+                        <span class="checkmark"></span>
+                        <span>Inter-Plane ISL (Cross-Seam)</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-rl-isl">
+                        <span class="checkmark"></span>
+                        <span>Right-Left ISL (Lateral Asc↔Desc)</span>
+                    </label>
+
+                    <!-- Min Communications Altitude -->
+                    <div class="speed-control"
+                        style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);">
+                        <span>Min Comm. Alt:</span>
+                        <input type="range" min="0" max="500" step="5" value="80" id="min-comm-alt">
+                        <span id="min-comm-alt-val">80 km</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Display Dropdown -->
+            <div class="dropdown-container is-open" id="dropdown-display">
+                <div class="dropdown-header" onclick="toggleDropdown('dropdown-display')">
+                    <span class="header-title">Display</span>
+                    <svg class="arrow-icon" viewBox="0 0 24 24">
+                        <path d="M7 17 L17 7" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M7 7 L17 7 L17 17" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="dropdown-content">
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-ascending" checked>
+                        <span class="checkmark"></span>
+                        <span>Ascending Orbits</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-descending" checked>
+                        <span class="checkmark"></span>
+                        <span>Descending Orbits</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-grid" checked>
+                        <span class="checkmark"></span>
+                        <span>Lat/Lon Grid</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cb-dots" checked>
+                        <span class="checkmark"></span>
+                        <span>Show Satellite Dots</span>
+                    </label>
+                </div>
+            </div>
+
+
+
+            <!-- Playback Controls -->
+            <div class="playback-section">
+                <button class="play-btn" id="play-btn">
+                    <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 4l15 8-15 8V4z" />
+                    </svg>
+                    <svg id="pause-icon" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                    </svg>
+                </button>
+                <div class="speed-control">
+                    <span>Speed:</span>
+                    <input type="range" min="1" max="1000" step="1" value="1" id="speed-slider">
+                    <span id="speed-value">1.0x</span>
+                </div>
+            </div>
+
+            <!-- Time Display -->
+            <div class="time-section">
+                <span class="time-label">UTC Time</span>
+                <div class="time-display" id="utc-time">--:--:--</div>
+                <button id="reset-time-btn" class="reset-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span>Live Sync</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Constellation Dashboard -->
+    <section class="isl-dashboard">
+        <div class="db-container">
+
+            <div class="db-column">
+                <div class="db-header-wrapper">
+                    <h2 class="db-h2">Ground Stations</h2>
+                    <button class="db-plus-btn" title="Add Ground Station">+</button>
+                </div>
+
+                <div class="db-card">
+                    <div class="db-card-header">
+                        <span>Ground Stations #1</span>
+                        <span class="db-dots-menu">...</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Coordinates</span>
+                        <span class="db-value">6°10'11.6"S 106°51'11.6"E</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Maximum Links</span>
+                        <span class="db-value live-int">5</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Lowest Elevation</span>
+                        <span class="db-value">20 degree</span>
+                    </div>
+                </div>
+
+                <div class="db-card">
+                    <div class="db-card-header">
+                        <span>Ground Stations #2</span>
+                        <span class="db-dots-menu">...</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Coordinates</span>
+                        <span class="db-value">6°10'11.6"S 106°51'11.6"E</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Maximum Links</span>
+                        <span class="db-value live-int">5</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Lowest Elevation</span>
+                        <span class="db-value">20 degree</span>
+                    </div>
+                </div>
+
+                <div class="db-card">
+                    <div class="db-card-header">
+                        <span>Ground Stations #3</span>
+                        <span class="db-dots-menu">...</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Coordinates</span>
+                        <span class="db-value">6°10'11.6"S 106°51'11.6"E</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Maximum Links</span>
+                        <span class="db-value live-int">5</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Lowest Elevation</span>
+                        <span class="db-value">20 degree</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="db-column">
+                <div class="db-header-wrapper">
+                    <h2 class="db-h2">Constellations</h2>
+                    <button class="db-plus-btn" title="Add Constellation" onclick="addConstellation()">+</button>
+                </div>
+
+                <div class="db-card" id="const-card-1">
+                    <div class="db-card-header">
+                        <input class="db-card-name" value="Constellation #1" data-field="name" spellcheck="false">
+                        <div class="db-card-actions">
+                            <button class="db-delete-btn" onclick="deleteConstellation(this)"
+                                title="Delete Constellation">×</button>
+                            <span class="db-dots-menu" onclick="toggleConstSettings(this)">...</span>
+                        </div>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Sats Amount</span>
+                        <span class="db-value" data-summary="satellites">600</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Orbital Planes</span>
+                        <span class="db-value" data-summary="planes">12</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Inclination</span>
+                        <span class="db-value" data-summary="inclination">53°</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Altitude (km)</span>
+                        <span class="db-value" data-summary="altitude">550</span>
+                    </div>
+
+                    <!-- Expandable Settings -->
+                    <div class="db-settings-panel">
+                        <div class="db-slider-row">
+                            <div class="db-slider-label-row">
+                                <span>Satellites</span>
+                                <span class="db-slider-val" data-for="satellites">600</span>
+                            </div>
+                            <input type="range" min="100" max="2000" value="600" data-param="satellites">
+                        </div>
+                        <div class="db-slider-row">
+                            <div class="db-slider-label-row">
+                                <span>Orbital Planes</span>
+                                <span class="db-slider-val" data-for="planes">12</span>
+                            </div>
+                            <input type="range" min="1" max="50" value="12" data-param="planes">
+                        </div>
+                        <div class="db-slider-row">
+                            <div class="db-slider-label-row">
+                                <span>Inclination (°)</span>
+                                <span class="db-slider-val" data-for="inclination">53</span>
+                            </div>
+                            <input type="range" min="0" max="90" step="1" value="53" data-param="inclination">
+                        </div>
+                        <div class="db-toggle-row">
+                            <span>Symmetrical Orbit</span>
+                            <label class="db-toggle-switch">
+                                <input type="checkbox" checked onchange="toggleSymmetrical(this)">
+                                <span class="db-toggle-slider"></span>
+                            </label>
+                        </div>
+                        <!-- Symmetrical: single altitude slider -->
+                        <div class="db-slider-row" data-orbit="symmetrical">
+                            <div class="db-slider-label-row">
+                                <span>Altitude (km)</span>
+                                <span class="db-slider-val" data-for="altitude">550</span>
+                            </div>
+                            <input type="range" min="200" max="2000" step="10" value="550" data-param="altitude">
+                        </div>
+                        <!-- Asymmetrical: separate apogee/perigee -->
+                        <div class="db-slider-row" data-orbit="asymmetrical" style="display:none;">
+                            <div class="db-slider-label-row">
+                                <span>Apogee (km)</span>
+                                <span class="db-slider-val" data-for="apogee">600</span>
+                            </div>
+                            <input type="range" min="200" max="2000" step="10" value="600" data-param="apogee">
+                        </div>
+                        <div class="db-slider-row" data-orbit="asymmetrical" style="display:none;">
+                            <div class="db-slider-label-row">
+                                <span>Perigee (km)</span>
+                                <span class="db-slider-val" data-for="perigee">500</span>
+                            </div>
+                            <input type="range" min="200" max="2000" step="10" value="500" data-param="perigee">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="db-card" id="const-card-2">
+                    <div class="db-card-header">
+                        <input class="db-card-name" value="Constellation #2" data-field="name" spellcheck="false">
+                        <div class="db-card-actions">
+                            <button class="db-delete-btn" onclick="deleteConstellation(this)"
+                                title="Delete Constellation">×</button>
+                            <span class="db-dots-menu" onclick="toggleConstSettings(this)">...</span>
+                        </div>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Sats Amount</span>
+                        <span class="db-value" data-summary="satellites">1200</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Orbital Planes</span>
+                        <span class="db-value" data-summary="planes">20</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Inclination</span>
+                        <span class="db-value" data-summary="inclination">70°</span>
+                    </div>
+                    <div class="db-data-row">
+                        <span class="db-label">Altitude (km)</span>
+                        <span class="db-value" data-summary="altitude">1100</span>
+                    </div>
+
+                    <!-- Expandable Settings -->
+                    <div class="db-settings-panel">
+                        <div class="db-slider-row">
+                            <div class="db-slider-label-row">
+                                <span>Satellites</span>
+                                <span class="db-slider-val" data-for="satellites">1200</span>
+                            </div>
+                            <input type="range" min="100" max="2000" value="1200" data-param="satellites">
+                        </div>
+                        <div class="db-slider-row">
+                            <div class="db-slider-label-row">
+                                <span>Orbital Planes</span>
+                                <span class="db-slider-val" data-for="planes">20</span>
+                            </div>
+                            <input type="range" min="1" max="50" value="20" data-param="planes">
+                        </div>
+                        <div class="db-slider-row">
+                            <div class="db-slider-label-row">
+                                <span>Inclination (°)</span>
+                                <span class="db-slider-val" data-for="inclination">70</span>
+                            </div>
+                            <input type="range" min="0" max="90" step="1" value="70" data-param="inclination">
+                        </div>
+                        <div class="db-toggle-row">
+                            <span>Symmetrical Orbit</span>
+                            <label class="db-toggle-switch">
+                                <input type="checkbox" checked onchange="toggleSymmetrical(this)">
+                                <span class="db-toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="db-slider-row" data-orbit="symmetrical">
+                            <div class="db-slider-label-row">
+                                <span>Altitude (km)</span>
+                                <span class="db-slider-val" data-for="altitude">1100</span>
+                            </div>
+                            <input type="range" min="200" max="2000" step="10" value="1100" data-param="altitude">
+                        </div>
+                        <div class="db-slider-row" data-orbit="asymmetrical" style="display:none;">
+                            <div class="db-slider-label-row">
+                                <span>Apogee (km)</span>
+                                <span class="db-slider-val" data-for="apogee">1200</span>
+                            </div>
+                            <input type="range" min="200" max="2000" step="10" value="1200" data-param="apogee">
+                        </div>
+                        <div class="db-slider-row" data-orbit="asymmetrical" style="display:none;">
+                            <div class="db-slider-label-row">
+                                <span>Perigee (km)</span>
+                                <span class="db-slider-val" data-for="perigee">1000</span>
+                            </div>
+                            <input type="range" min="200" max="2000" step="10" value="1000" data-param="perigee">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="db-column" style="display: block;">
+                <h2 class="db-sim-section-title">Simulation Data</h2>
+
+                <div class="db-sim-header-row">
+                    <div class="db-sim-sub-header">Constellation #1</div>
+                    <div class="db-sim-sub-header">Constellation #2</div>
+                    <div></div>
+                </div>
+
+                <div class="db-sim-data-layout">
+
+                    <div class="db-column">
+                        <div class="db-metric-card">
+                            <div class="db-card-header" style="margin-bottom:0;">
+                                <span>Cross Plane (Voronoi)</span>
+                                <span class="db-dots-menu">...</span>
+                            </div>
+                            <div class="db-metric-big live-big">775</div>
+                            <div class="db-metric-sub">Links</div>
+                            <div class="db-metric-footer">
+                                <span class="db-label">Total Capacity (Gbps)</span>
+                                <span class="db-metric-val live-float">775</span>
+                            </div>
+                        </div>
+
+                        <div class="db-metric-card">
+                            <div class="db-card-header" style="margin-bottom:0;">
+                                <span>Intra-Plane ISL</span>
+                                <span class="db-dots-menu">...</span>
+                            </div>
+                            <div class="db-metric-big live-big">775</div>
+                            <div class="db-metric-sub">Links</div>
+                            <div class="db-metric-footer">
+                                <span class="db-label">Total Capacity (Gbps)</span>
+                                <span class="db-metric-val live-float">775</span>
+                            </div>
+                        </div>
+
+                        <div class="db-metric-card">
+                            <div class="db-card-header" style="margin-bottom:0;">
+                                <span>Inter-Plane ISL</span>
+                                <span class="db-dots-menu">...</span>
+                            </div>
+                            <div class="db-metric-big live-big">775</div>
+                            <div class="db-metric-sub">Links</div>
+                            <div class="db-metric-footer">
+                                <span class="db-label">Total Capacity (Gbps)</span>
+                                <span class="db-metric-val live-float">775</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="db-column">
+                        <div class="db-metric-card">
+                            <div class="db-card-header" style="margin-bottom:0;">
+                                <span>Cross Plane (Voronoi)</span>
+                                <span class="db-dots-menu">...</span>
+                            </div>
+                            <div class="db-metric-big live-big">775</div>
+                            <div class="db-metric-sub">Links</div>
+                            <div class="db-metric-footer">
+                                <span class="db-label">Total Capacity (Gbps)</span>
+                                <span class="db-metric-val live-float">775</span>
+                            </div>
+                        </div>
+
+                        <div class="db-metric-card">
+                            <div class="db-card-header" style="margin-bottom:0;">
+                                <span>Intra-Plane ISL</span>
+                                <span class="db-dots-menu">...</span>
+                            </div>
+                            <div class="db-metric-big live-big">775</div>
+                            <div class="db-metric-sub">Links</div>
+                            <div class="db-metric-footer">
+                                <span class="db-label">Total Capacity (Gbps)</span>
+                                <span class="db-metric-val live-float">775</span>
+                            </div>
+                        </div>
+
+                        <div class="db-metric-card">
+                            <div class="db-card-header" style="margin-bottom:0;">
+                                <span>Inter-Plane ISL</span>
+                                <span class="db-dots-menu">...</span>
+                            </div>
+                            <div class="db-metric-big live-big">775</div>
+                            <div class="db-metric-sub">Links</div>
+                            <div class="db-metric-footer">
+                                <span class="db-label">Total Capacity (Gbps)</span>
+                                <span class="db-metric-val live-float">775</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="db-column">
+                        <div class="db-metric-card">
+                            <div class="db-card-header" style="margin-bottom:0;">
+                                <span>Cross Const (Voronoi)</span>
+                                <span class="db-dots-menu">...</span>
+                            </div>
+                            <div class="db-metric-big live-big">775</div>
+                            <div class="db-metric-sub">Links</div>
+                            <div class="db-metric-footer">
+                                <span class="db-label">Total Capacity (Gbps)</span>
+                                <span class="db-metric-val live-float">775</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Footer Section -->
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-left">
+                <img src="/static/logo/palatine-white.svg" alt="Palatine Technologies" class="footer-logo">
+
+                <div class="copyright-wrapper">
+                    <div class="copyright-text">
+                        COPYRIGHT © 2026 PALATINE TECHNOLOGIES
+                    </div>
+                    <ul class="legal-links">
+                        <li><a href="#">License</a></li>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Use</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-right">
+                <div class="footer-column">
+                    <div class="column-header">COMPANY</div>
+                    <ul class="footer-links">
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Mission</a></li>
+                        <li><a href="#">GitHub</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <div class="column-header">ORIGINAL CREATORS</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Vortexa Selenic Team</a></li>
+                        <li><a href="#">NASA Space Apps Jakarta 2025</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <div class="column-header">RESEARCH</div>
+                    <ul class="footer-links">
+                        <li><a href="#">2026 Whitepaper</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/isl.js"></script>
+
+    <!-- Dashboard Interaction + Simulation Script -->
+    <script>
+        // === Constellation Management ===
+        let constellationCounter = 2; // existing cards are #1 and #2
+
+        // === Constellation Card: Expand / Collapse ===
+        function toggleConstSettings(dotsEl) {
+            const card = dotsEl.closest('.db-card');
+            card.classList.toggle('expanded');
+        }
+
+        // === Add Constellation ===
+        function addConstellation() {
+            constellationCounter++;
+            const n = constellationCounter;
+            const cardId = 'const-card-' + n;
+
+            const card = document.createElement('div');
+            card.className = 'db-card';
+            card.id = cardId;
+            card.innerHTML = `
+                <div class="db-card-header">
+                    <input class="db-card-name" value="Constellation #${n}" data-field="name" spellcheck="false">
+                    <div class="db-card-actions">
+                        <button class="db-delete-btn" onclick="deleteConstellation(this)" title="Delete Constellation">×</button>
+                        <span class="db-dots-menu" onclick="toggleConstSettings(this)">...</span>
+                    </div>
+                </div>
+                <div class="db-data-row">
+                    <span class="db-label">Sats Amount</span>
+                    <span class="db-value" data-summary="satellites">600</span>
+                </div>
+                <div class="db-data-row">
+                    <span class="db-label">Orbital Planes</span>
+                    <span class="db-value" data-summary="planes">12</span>
+                </div>
+                <div class="db-data-row">
+                    <span class="db-label">Inclination</span>
+                    <span class="db-value" data-summary="inclination">53°</span>
+                </div>
+                <div class="db-data-row">
+                    <span class="db-label">Altitude (km)</span>
+                    <span class="db-value" data-summary="altitude">550</span>
+                </div>
+                <div class="db-settings-panel">
+                    <div class="db-slider-row">
+                        <div class="db-slider-label-row">
+                            <span>Satellites</span>
+                            <span class="db-slider-val" data-for="satellites">600</span>
+                        </div>
+                        <input type="range" min="100" max="2000" value="600" data-param="satellites">
+                    </div>
+                    <div class="db-slider-row">
+                        <div class="db-slider-label-row">
+                            <span>Orbital Planes</span>
+                            <span class="db-slider-val" data-for="planes">12</span>
+                        </div>
+                        <input type="range" min="1" max="50" value="12" data-param="planes">
+                    </div>
+                    <div class="db-slider-row">
+                        <div class="db-slider-label-row">
+                            <span>Inclination (°)</span>
+                            <span class="db-slider-val" data-for="inclination">53</span>
+                        </div>
+                        <input type="range" min="0" max="90" step="1" value="53" data-param="inclination">
+                    </div>
+                    <div class="db-toggle-row">
+                        <span>Symmetrical Orbit</span>
+                        <label class="db-toggle-switch">
+                            <input type="checkbox" checked onchange="toggleSymmetrical(this)">
+                            <span class="db-toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="db-slider-row" data-orbit="symmetrical">
+                        <div class="db-slider-label-row">
+                            <span>Altitude (km)</span>
+                            <span class="db-slider-val" data-for="altitude">550</span>
+                        </div>
+                        <input type="range" min="200" max="2000" step="10" value="550" data-param="altitude">
+                    </div>
+                    <div class="db-slider-row" data-orbit="asymmetrical" style="display:none;">
+                        <div class="db-slider-label-row">
+                            <span>Apogee (km)</span>
+                            <span class="db-slider-val" data-for="apogee">600</span>
+                        </div>
+                        <input type="range" min="200" max="2000" step="10" value="600" data-param="apogee">
+                    </div>
+                    <div class="db-slider-row" data-orbit="asymmetrical" style="display:none;">
+                        <div class="db-slider-label-row">
+                            <span>Perigee (km)</span>
+                            <span class="db-slider-val" data-for="perigee">500</span>
+                        </div>
+                        <input type="range" min="200" max="2000" step="10" value="500" data-param="perigee">
+                    </div>
+                </div>
+            `;
+
+            // Insert before the end of the constellation column
+            const constColumn = document.querySelector('.db-column:nth-child(2)');
+            constColumn.appendChild(card);
+
+            // Wire up slider sync for this new card
+            wireCardSliders(card);
+
+            // Register with the visualizer engine
+            if (window.islVisualizer) {
+                window.islVisualizer.addConstellationFromCard(cardId);
+            }
+        }
+
+        // === Delete Constellation ===
+        function deleteConstellation(btn) {
+            const column = document.querySelector('.db-column:nth-child(2)');
+            const cards = column.querySelectorAll('.db-card');
+            if (cards.length <= 1) return; // prevent deleting the last one
+
+            const card = btn.closest('.db-card');
+            const cardId = card.id;
+
+            // Remove from visualizer engine
+            if (window.islVisualizer) {
+                window.islVisualizer.removeConstellation(cardId);
+            }
+
+            card.classList.add('removing');
+            setTimeout(() => card.remove(), 300);
+        }
+
+        // === Wire slider sync for a card ===
+        function wireCardSliders(card) {
+            card.querySelectorAll('.db-settings-panel input[type="range"]').forEach(slider => {
+                slider.addEventListener('input', function () {
+                    const param = this.dataset.param;
+                    const panel = this.closest('.db-settings-panel');
+
+                    // Update slider value label
+                    const valLabel = panel.querySelector('[data-for="' + param + '"]');
+                    if (valLabel) valLabel.textContent = this.value;
+
+                    // Update summary row
+                    const summaryEl = card.querySelector('[data-summary="' + param + '"]');
+                    if (summaryEl) {
+                        if (param === 'inclination') {
+                            summaryEl.textContent = this.value + '°';
+                        } else {
+                            summaryEl.textContent = this.value;
+                        }
+                    }
+
+                    // Special: altitude/apogee/perigee update the altitude summary
+                    if (param === 'altitude') {
+                        const altSummary = card.querySelector('[data-summary="altitude"]');
+                        if (altSummary) altSummary.textContent = this.value;
+                    }
+                    if (param === 'apogee' || param === 'perigee') {
+                        const altSummary = card.querySelector('[data-summary="altitude"]');
+                        const apVal = panel.querySelector('[data-param="apogee"]').value;
+                        const peVal = panel.querySelector('[data-param="perigee"]').value;
+                        if (altSummary) altSummary.textContent = apVal + ' / ' + peVal;
+                    }
+
+                    // Sync to visualizer engine
+                    if (window.islVisualizer) {
+                        window.islVisualizer.syncConstellationFromCard(card);
+                    }
+                });
+            });
+        }
+
+        // === Symmetrical Orbit Toggle ===
+        function toggleSymmetrical(checkboxEl) {
+            const panel = checkboxEl.closest('.db-settings-panel');
+            const symRows = panel.querySelectorAll('[data-orbit="symmetrical"]');
+            const asymRows = panel.querySelectorAll('[data-orbit="asymmetrical"]');
+            const card = checkboxEl.closest('.db-card');
+            const altSummary = card.querySelector('[data-summary="altitude"]');
+
+            if (checkboxEl.checked) {
+                // Symmetrical: show single altitude
+                symRows.forEach(r => r.style.display = '');
+                asymRows.forEach(r => r.style.display = 'none');
+                const altVal = panel.querySelector('[data-param="altitude"]').value;
+                if (altSummary) altSummary.textContent = altVal;
+            } else {
+                // Asymmetrical: show apogee + perigee
+                symRows.forEach(r => r.style.display = 'none');
+                asymRows.forEach(r => r.style.display = '');
+                const apVal = panel.querySelector('[data-param="apogee"]').value;
+                const peVal = panel.querySelector('[data-param="perigee"]').value;
+                if (altSummary) altSummary.textContent = apVal + ' / ' + peVal;
+            }
+
+            // Sync to visualizer engine
+            if (window.islVisualizer) {
+                window.islVisualizer.syncConstellationFromCard(card);
+            }
+        }
+
+        // === Slider → Summary Sync (wire existing cards) ===
+        document.querySelectorAll('.db-card').forEach(card => wireCardSliders(card));
+
+        // === Live Metric Number Simulation ===
+        (function () {
+            const UPDATE_INTERVAL = 1500;
+            function getRandomInt(min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+            function updateNumbers() {
+                document.querySelectorAll('.isl-dashboard .live-big').forEach(el => {
+                    let current = parseInt(el.innerText);
+                    let change = getRandomInt(-3, 3);
+                    let newValue = current + change;
+                    if (newValue < 100) newValue = 100;
+                    el.innerText = newValue;
+                });
+                document.querySelectorAll('.isl-dashboard .live-float').forEach(el => {
+                    let current = parseFloat(el.innerText);
+                    let change = getRandomInt(-5, 5);
+                    el.innerText = current + change;
+                });
+            }
+            setInterval(updateNumbers, UPDATE_INTERVAL);
+        })();
+    </script>
+</body>
+
+</html>
