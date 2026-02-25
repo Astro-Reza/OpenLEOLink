@@ -1,10 +1,10 @@
 # Palatine Space
 
 <div align="center">
-  <img width="200px" src="static/logo/palatine-white.svg"/>
+  <img width="500px" src="static/logo/palatine-white.svg"/>
 </div>
 
-
+---
 A comprehensive web-based platform for Low Earth Orbit (LEO) satellite constellation visualization and link budget analysis. A 
 
 ## Features
